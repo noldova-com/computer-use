@@ -12,11 +12,15 @@ import { TestApp } from "./test-app.ts";
 
 export { expect } from "@playwright/test";
 
-export const test = base.extend<{ isComputerUseOn: boolean; app: TestApp }>({
+export const test = base.extend<{ isComputerUseOn: boolean; dataFiles: Readonly<Record<string, string>>; waitsForStart: boolean; app: TestApp }>({
   isComputerUseOn: [false, { option: true }],
-  app: async ({ isComputerUseOn }, use, testInfo) => {
-    const app = await TestApp.startAsync(testInfo);
+  dataFiles: [{}, { option: true }],
+  waitsForStart: [true, { option: true }],
+  app: async ({ isComputerUseOn, dataFiles, waitsForStart }, use, testInfo) => {
+    const app = await TestApp.launchAsync(testInfo, dataFiles);
     try {
+      if (waitsForStart)
+        await app.waitForStartAsync();
       if (isComputerUseOn)
         await app.setSettingAsync("computer-use.enabled", true);
       await use(app);
