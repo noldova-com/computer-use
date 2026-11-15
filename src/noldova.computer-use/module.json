@@ -1,6 +1,6 @@
 {
   "id": "computer-use",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "displayName": "Computer use",
   "description": "Lets an agent see the screen and use the pointer and keyboard on the person's behalf, with the person's permission.",
   "parts": ["runtime", "window"],

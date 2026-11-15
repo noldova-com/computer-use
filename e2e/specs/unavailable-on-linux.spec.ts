@@ -17,7 +17,7 @@ test.describe("computer use installed from its package into an app on Linux", ()
     await expect(app.moduleRow("agent-double").locator(".nol-modules-state-label")).toHaveText("Active");
     const row = app.moduleRow("computer-use");
     await expect(row.locator(".nol-modules-state-label")).toHaveText("Unavailable");
-    await expect(row.locator(".nol-modules-row-version")).toHaveText("0.0.1");
+    await expect(row.locator(".nol-modules-row-version")).toHaveText("0.0.2");
 
     await row.click();
 

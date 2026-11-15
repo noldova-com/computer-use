@@ -4,6 +4,11 @@
 
 Each version's section is written by the pull request that changes the version, from the pull requests merged since the previous version; other pull requests don't edit this file.
 
+## 0.0.2
+
+- The packages are the same as 0.0.1's but for their version: no pull request since 0.0.1 changed them.
+  0.0.2 is the first version published through npm's trusted publishing, since 0.0.1 had to use a one-time token, and #2 took that token out.
+
 ## 0.0.1
 
 - The first version of `@noldova/computer-use`, `@noldova/computer-use.protocol`, `@noldova/computer-use.runtime` and `@noldova/computer-use.window`, under the MIT License.
