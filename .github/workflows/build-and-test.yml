@@ -43,10 +43,20 @@ jobs:
     permissions: {}
 
   desktop-end-to-end:
-    name: Desktop end-to-end, Windows x64
+    name: Desktop end-to-end, ${{ matrix.label }}
     needs: versions
-    runs-on: windows-2025
+    runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            label: Windows x64
+            runs-on: windows-2025
+          - target: macos-arm64
+            label: macOS arm64
+            runs-on: macos-15
     permissions:
       contents: read
     defaults:
@@ -83,6 +93,10 @@ jobs:
       - name: Prepare the fixture app
         run: npm run test:e2e:prepare
 
+      - name: Grant the test app on the hosted macOS runner
+        if: runner.os == 'macOS' && runner.environment == 'github-hosted'
+        run: npm run test:e2e:grant-hosted-macos
+
       - name: Run the desktop end-to-end spec
         run: npm run test:e2e:desktop
 
@@ -90,7 +104,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: desktop-end-to-end-windows-x64
+          name: desktop-end-to-end-${{ matrix.target }}
           path: _build/e2e
           if-no-files-found: ignore
           retention-days: 14

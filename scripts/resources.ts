@@ -198,7 +198,7 @@ export class Resources {
     "--test-coverage-branches=100",
     "--test-coverage-functions=100"
   ];
-  public static readonly testFiles: readonly string[] = ["src/*/tests/**/*.test.ts"];
+  public static readonly testFiles: readonly string[] = ["src/*/tests/**/*.test.ts", "e2e/tests/**/*.test.ts"];
   public static readonly testFileEnding: string = ".ts";
   public static readonly workflowTestOptions: readonly string[] = ["--skip-test-details", "--skip-coverage-details"];
   public static readonly filteredTestOptions: readonly string[] = ["--test", "--enable-source-maps"];
@@ -253,7 +253,7 @@ export class Resources {
   public static readonly nativeTimingHangLimitMs: number = 30_000;
   public static readonly nativeTimingHangReason: string = "the slowest native timing check measured took 1.9 s, on macOS x64, with the windows it opens before it measures, so a check fifteen times slower is stuck, not slow";
 
-  public static readonly testWaitFiles: readonly string[] = ["src/*/tests/**/*.ts", "src/*/tests/**/*.cjs", "src/*/tests/**/*.js", "src/*/tests/**/*.mjs"];
+  public static readonly testWaitFiles: readonly string[] = ["src/*/tests/**/*.ts", "src/*/tests/**/*.cjs", "src/*/tests/**/*.js", "src/*/tests/**/*.mjs", "e2e/tests/**/*.ts"];
   public static readonly testWaitPauses: readonly RegExp[] = [
     /\bimport\s*(?:\{[^}]*\b(?:setTimeout|setImmediate|scheduler)\b[^}]*\}|\*\s*as\s+[\w$]+|[\w$]+)\s*from\s*["'](?:node:)?timers\/promises["']/g,
     /\brequire\(\s*["'](?:node:)?timers\/promises["']\s*\)/g,
