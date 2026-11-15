@@ -25,7 +25,7 @@ class HostedMacGrants {
   private static readonly CSREQ: string = "/usr/bin/csreq";
   private static readonly PLUTIL: string = "/usr/bin/plutil";
   private static readonly EXECUTABLES: string = `${path.sep}Contents${path.sep}MacOS${path.sep}`;
-  private static readonly REQUIREMENT_PREFIX: string = "designated => ";
+  private static readonly REQUIREMENT_LINE: RegExp = /^(?:# )?designated => (.+)$/;
   private static readonly IDENTIFIER: RegExp = /^[A-Za-z0-9.-]+$/;
   private static readonly NOT_HOSTED: string = "Only a GitHub-hosted macOS runner grants the test app here; on any other Mac a person gives the grants.";
 
@@ -52,11 +52,12 @@ class HostedMacGrants {
 
   private static async readRequirementAsync(bundle: string): Promise<string> {
     const signature = await run(HostedMacGrants.CODESIGN, ["--display", "--requirements", "-", bundle], { encoding: "utf8" });
-    const line = `${signature.stdout}\n${signature.stderr}`.split("\n").find(t => t.startsWith(HostedMacGrants.REQUIREMENT_PREFIX));
-    if (line === undefined)
-      throw new Error(`codesign names no designated requirement for ${bundle}.`);
+    const text = `${signature.stdout}\n${signature.stderr}`;
+    const requirement = text.split("\n").map(t => HostedMacGrants.REQUIREMENT_LINE.exec(t.trim())?.[1]).find(t => t !== undefined);
+    if (requirement === undefined)
+      throw new Error(`codesign names no designated requirement for ${bundle}: ${JSON.stringify(text)}`);
     const output = path.join(await mkdtemp(path.join(tmpdir(), "cu-grant-")), "requirement.bin");
-    await run(HostedMacGrants.CSREQ, ["-r", `=${line.slice(HostedMacGrants.REQUIREMENT_PREFIX.length)}`, "-b", output]);
+    await run(HostedMacGrants.CSREQ, ["-r", `=${requirement}`, "-b", output]);
     return (await readFile(output)).toString("hex");
   }
 }
