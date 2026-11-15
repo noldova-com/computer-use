@@ -7,8 +7,8 @@
  */
 
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, readFile, realpath } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -24,6 +24,9 @@ class HostedMacGrants {
   private static readonly CODESIGN: string = "/usr/bin/codesign";
   private static readonly CSREQ: string = "/usr/bin/csreq";
   private static readonly PLUTIL: string = "/usr/bin/plutil";
+  private static readonly DEFAULTS: string = "/usr/bin/defaults";
+  private static readonly APPROVALS_SEGMENTS: readonly string[] = ["Library", "Group Containers", "group.com.apple.replayd", "ScreenCaptureApprovals.plist"];
+  private static readonly APPROVED_UNTIL: string = "3024-01-01 00:00:00 +0000";
   private static readonly EXECUTABLES: string = `${path.sep}Contents${path.sep}MacOS${path.sep}`;
   private static readonly REQUIREMENT_LINE: RegExp = /^(?:# )?designated => (.+)$/;
   private static readonly IDENTIFIER: RegExp = /^[A-Za-z0-9.-]+$/;
@@ -48,6 +51,17 @@ class HostedMacGrants {
     if (granted.join(" ") !== HostedMacGrants.SERVICES.join(" "))
       throw new Error(`The runner's TCC database grants ${identifier} ${JSON.stringify(granted)}, not ${HostedMacGrants.SERVICES.join(" and ")}.`);
     process.stdout.write(`Granted ${HostedMacGrants.SERVICES.join(" and ")} to ${identifier} on this GitHub-hosted runner.\n`);
+    await HostedMacGrants.approveCaptureAsync(await realpath(executable));
+  }
+
+  private static async approveCaptureAsync(executable: string): Promise<void> {
+    const approvals = path.join(homedir(), ...HostedMacGrants.APPROVALS_SEGMENTS);
+    await mkdir(path.dirname(approvals), { recursive: true });
+    await run(HostedMacGrants.DEFAULTS, ["write", approvals, executable, "-date", HostedMacGrants.APPROVED_UNTIL]);
+    const approved = (await run(HostedMacGrants.DEFAULTS, ["read", approvals, executable], { encoding: "utf8" })).stdout.trim();
+    if (approved.length === 0)
+      throw new Error(`The runner's screen capture approvals hold nothing for ${executable}.`);
+    process.stdout.write(`Approved screen capture without the window picker for ${executable} until ${approved} on this GitHub-hosted runner.\n`);
   }
 
   private static async readRequirementAsync(bundle: string): Promise<string> {
