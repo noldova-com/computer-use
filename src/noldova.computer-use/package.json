@@ -1,6 +1,6 @@
 {
   "name": "@noldova/computer-use",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The computer use module for apps on Noldova Desktop: agent tools that see the screen and use the pointer and keyboard, with the person's permission, and the window's status and stop control.",
   "type": "module",
   "license": "MIT",
@@ -30,8 +30,8 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@noldova/computer-use.runtime": "0.0.1",
-    "@noldova/computer-use.window": "0.0.1"
+    "@noldova/computer-use.runtime": "0.0.2",
+    "@noldova/computer-use.window": "0.0.2"
   },
   "peerDependencies": {
     "@noldova/desktop.protocol": ">=0.0.1 <0.1.0",
