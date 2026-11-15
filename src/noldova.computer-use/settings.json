@@ -1,0 +1,30 @@
+{
+  "settings": [
+    {
+      "name": "computer-use.enabled",
+      "title": "Computer use (preview)",
+      "description": "Lets agents see the screen and use the pointer and keyboard, after you allow each conversation and each app. While it is off, agents get no computer use tools.",
+      "type": {
+        "kind": "Boolean"
+      },
+      "default": false,
+      "locality": "Shared",
+      "scopes": [],
+      "page": "Computer use",
+      "group": "Computer use"
+    },
+    {
+      "name": "computer-use.showBorder",
+      "title": "Show a border while an agent uses the computer",
+      "description": "Shows a thin border in the accent colour around every display while an agent controls the screen, so you can see at a glance that computer use is active. Agents' screenshots never show it.",
+      "type": {
+        "kind": "Boolean"
+      },
+      "default": true,
+      "locality": "Shared",
+      "scopes": [],
+      "page": "Computer use",
+      "group": "Computer use"
+    }
+  ]
+}

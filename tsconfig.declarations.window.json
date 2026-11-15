@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig-base.json",
+  "compilerOptions": {
+    "lib": ["ES2025", "ESNext.Disposable", "DOM", "DOM.Iterable"]
+  },
+  "files": [
+    "src/noldova.computer-use/api/window.d.ts",
+    "src/noldova.computer-use.window/src/api/index.d.ts"
+  ]
+}

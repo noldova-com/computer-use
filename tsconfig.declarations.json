@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig-base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ]
+  },
+  "files": [
+    "src/noldova.computer-use/api/runtime.d.ts",
+    "src/noldova.computer-use.protocol/src/api/index.d.ts",
+    "src/noldova.computer-use.runtime/src/api/index.d.ts",
+    "src/noldova.computer-use.runtime/src/api/macos/index.d.ts",
+    "src/noldova.computer-use.runtime/src/api/windows/index.d.ts"
+  ]
+}

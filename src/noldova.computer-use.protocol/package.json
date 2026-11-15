@@ -1,0 +1,33 @@
+{
+  "name": "@noldova/computer-use.protocol",
+  "version": "0.0.1",
+  "description": "Computer use's models that its runtime and window parts exchange: the session's status, its control state, the status read and stop requests, and the border colour request.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noldova-com/computer-use.git",
+    "directory": "src/noldova.computer-use.protocol"
+  },
+  "homepage": "https://github.com/noldova-com/computer-use#readme",
+  "bugs": {
+    "url": "https://github.com/noldova-com/computer-use/issues"
+  },
+  "exports": {
+    ".": "./src/api/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/**/*.js",
+    "src/**/*.js.map",
+    "src/**/*.d.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "@noldova/context.exceptions": ">=0.0.7 <0.1.0",
+    "@noldova/context.json": ">=0.0.7 <0.1.0"
+  }
+}

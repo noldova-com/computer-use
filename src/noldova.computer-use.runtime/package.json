@@ -1,0 +1,54 @@
+{
+  "name": "@noldova/computer-use.runtime",
+  "version": "0.0.1",
+  "description": "Computer use's runtime part: the agent tools for screenshots and input, the session and its permission requests, and the Windows and macOS backends.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noldova-com/computer-use.git",
+    "directory": "src/noldova.computer-use.runtime"
+  },
+  "homepage": "https://github.com/noldova-com/computer-use#readme",
+  "bugs": {
+    "url": "https://github.com/noldova-com/computer-use/issues"
+  },
+  "exports": {
+    ".": "./src/api/index.ts",
+    "./macos": "./src/api/macos/index.ts",
+    "./windows": "./src/api/windows/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/**/*.js",
+    "src/**/*.js.map",
+    "src/**/*.d.ts",
+    "jxa/*.js",
+    "generated/*.json",
+    "native/*/*.node"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@noldova/computer-use.protocol": "0.0.1"
+  },
+  "noldova": {
+    "windowsAddons": [
+      "windows-desktop"
+    ],
+    "kitAccent": "generated/kit-accent.json"
+  },
+  "noldovaDesktop": {
+    "unpacked": [
+      "jxa/mac-desktop.js"
+    ]
+  },
+  "peerDependencies": {
+    "@noldova/desktop.protocol": ">=0.0.1 <0.1.0",
+    "@noldova/desktop.runtime": ">=0.0.1 <0.1.0",
+    "@noldova/context.exceptions": ">=0.0.7 <0.1.0",
+    "@noldova/context.json": ">=0.0.7 <0.1.0"
+  }
+}

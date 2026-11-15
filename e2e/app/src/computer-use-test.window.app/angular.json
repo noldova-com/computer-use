@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "cli": {
+    "analytics": false
+  },
+  "projects": {
+    "computer-use-test-window": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "../../_build/window",
+            "index": "src/index.html",
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "styles": ["@noldova/ui.components.angular/styles/kit.css"],
+            "optimization": {
+              "scripts": true,
+              "styles": { "minify": true, "inlineCritical": false }
+            }
+          }
+        }
+      }
+    }
+  }
+}

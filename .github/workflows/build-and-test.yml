@@ -1,0 +1,96 @@
+# @license
+# Copyright (c) Noldova.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Build and test
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-test:
+    name: Build and test
+    uses: noldova-com/.github/.github/workflows/build-and-test.yml@5328d6b67990d5c1dd955f55e666d72de05a0b2a # v2.32.0
+    permissions:
+      contents: read
+      packages: read
+    with:
+      targets: ${{ github.event_name != 'pull_request' && 'linux-x64 linux-arm64 windows-x64 windows-arm64 macos-x64 macos-arm64' || 'linux-x64 windows-x64 macos-arm64' }}
+      publishes: true
+      end-to-end: e2e
+      end-to-end-prepare: npm run test:e2e:prepare
+      end-to-end-report: _build/e2e
+      unprivileged-user-namespaces: true
+      timeout-minutes: 20
+
+  versions:
+    name: Versions
+    uses: noldova-com/.github/.github/workflows/versions.yml@5328d6b67990d5c1dd955f55e666d72de05a0b2a # v2.32.0
+    permissions: {}
+
+  desktop-end-to-end:
+    name: Desktop end-to-end, Windows x64
+    needs: versions
+    runs-on: windows-2025
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ needs.versions.outputs.node-version }}
+          package-manager-cache: false
+
+      - name: Check the npm version
+        env:
+          NPM_VERSION: ${{ needs.versions.outputs.npm-version }}
+        run: |
+          installed="$(npm --version)"
+          if [ -n "$NPM_VERSION" ] && [ "$installed" != "$NPM_VERSION" ]; then
+            echo "::error::npm is $installed, not the $NPM_VERSION every other job checks."
+            exit 1
+          fi
+
+      - name: Install the dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare the fixture app
+        run: npm run test:e2e:prepare
+
+      - name: Run the desktop end-to-end spec
+        run: npm run test:e2e:desktop
+
+      - name: Keep the report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-end-to-end-windows-x64
+          path: _build/e2e
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,40 @@
+{
+  "name": "noldova-computer-use",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "npm@11.19.0",
+  "engines": {
+    "node": "24.21.0",
+    "npm": "11.19.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "peers:newest": "node scripts/move-peers.ts",
+    "test": "node scripts/test.ts",
+    "test:e2e": "tsc -p e2e/tsconfig.json && playwright test --config e2e/playwright.config.ts",
+    "test:e2e:desktop": "tsc -p e2e/tsconfig.json && playwright test --config e2e/playwright.desktop.config.ts",
+    "test:e2e:prepare": "node e2e/prepare-app.ts",
+    "test:timing": "node scripts/test-timing.ts"
+  },
+  "devDependencies": {
+    "@angular/cdk": "22.2.7",
+    "@angular/common": "22.2.6",
+    "@angular/compiler": "22.2.6",
+    "@angular/core": "22.2.6",
+    "@angular/forms": "22.2.6",
+    "@angular/platform-browser": "22.2.6",
+    "@noldova/context.core": "0.0.8",
+    "@noldova/context.exceptions": "0.0.8",
+    "@noldova/context.json": "0.0.8",
+    "@noldova/context.text": "0.0.8",
+    "@noldova/desktop.protocol": "0.0.1",
+    "@noldova/desktop.runtime": "0.0.1",
+    "@noldova/desktop.window": "0.0.1",
+    "@noldova/ui.components.angular": "0.0.5",
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

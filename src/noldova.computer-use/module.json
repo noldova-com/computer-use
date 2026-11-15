@@ -1,0 +1,22 @@
+{
+  "id": "computer-use",
+  "version": "0.0.1",
+  "displayName": "Computer use",
+  "description": "Lets an agent see the screen and use the pointer and keyboard on the person's behalf, with the person's permission.",
+  "parts": ["runtime", "window"],
+  "dependencies": {},
+  "switchSetting": "computer-use.enabled",
+  "noldovaDesktop": ">=0.0.1 <0.1.0",
+  "platforms": ["windows", "macos"],
+  "contributes": {
+    "methods": ["computer-use.stop", "computer-use.statusRead", "computer-use.borderColorSet"],
+    "events": ["computer-use.statusChanged"],
+    "commands": ["computer-use.stopControl"],
+    "statusBarItems": ["computer-use.status"],
+    "settings": ["computer-use.enabled", "computer-use.showBorder"],
+    "tools": [
+      "computer_list_displays", "computer_list_apps", "computer_request_apps", "computer_screenshot", "computer_zoom", "computer_read_window",
+      "computer_click", "computer_scroll", "computer_move", "computer_drag", "computer_type", "computer_key", "computer_batch"
+    ]
+  }
+}

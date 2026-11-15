@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig-base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2024", "ESNext.Disposable", "DOM", "DOM.Iterable"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": false,
+    "importHelpers": true,
+    "skipLibCheck": true
+  },
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }]
+}

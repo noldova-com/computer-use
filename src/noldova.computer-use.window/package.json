@@ -1,0 +1,44 @@
+{
+  "name": "@noldova/computer-use.window",
+  "version": "0.0.1",
+  "description": "Computer use's window part: the session's status and the stop control.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noldova-com/computer-use.git",
+    "directory": "src/noldova.computer-use.window"
+  },
+  "homepage": "https://github.com/noldova-com/computer-use#readme",
+  "bugs": {
+    "url": "https://github.com/noldova-com/computer-use/issues"
+  },
+  "exports": {
+    ".": "./src/api/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/**/*.js",
+    "src/**/*.js.map",
+    "src/**/*.d.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@noldova/computer-use.protocol": "0.0.1"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=22.2.6 <23.0.0",
+    "@noldova/desktop.window": ">=0.0.1 <0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/core": {
+      "optional": true
+    },
+    "@noldova/desktop.window": {
+      "optional": true
+    }
+  }
+}

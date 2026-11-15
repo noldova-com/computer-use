@@ -1,0 +1,9 @@
+{
+  "name": "@computer-use-test/app.agent-double.runtime",
+  "version": "__VERSION__",
+  "private": true,
+  "type": "module",
+  "main": "api/index.js",
+  "types": "api/index.d.ts",
+  "license": "MIT"
+}
