@@ -9,7 +9,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -31,14 +31,17 @@ export class TestApp {
   private static readonly FAILED_MODULES: RegExp = /^\d+ modules? didn't start$/;
   private static readonly DISCONNECTED: string = "Disconnected";
   private static readonly FOLDER_PREFIX: string = "cu-e2e-";
-  private static readonly RUNTIME_LOG: string = path.join("logs", "runtime.log");
-  private static readonly RUNTIME_LOG_NAME: string = "runtime.log";
+  private static readonly LOGS_FOLDER: string = "logs";
+  private static readonly OUTPUT_NAME: string = "main-process-output.txt";
+  private static readonly WINDOW: string = "nol-window";
+  private static readonly SETTINGS_BUTTON: string = ".nol-window-row-settings";
 
   public readonly window: Page;
   public readonly dataDirectory: string;
   public readonly deviceDirectory: string;
   private readonly application: ElectronApplication;
   private readonly testInfo: TestInfo;
+  private readonly output: string[] = [];
 
   private constructor(application: ElectronApplication, window: Page, dataDirectory: string, deviceDirectory: string, testInfo: TestInfo) {
     this.application = application;
@@ -46,23 +49,31 @@ export class TestApp {
     this.window = window;
     this.dataDirectory = dataDirectory;
     this.deviceDirectory = deviceDirectory;
+    const child = application.process();
+    child.stdout?.setEncoding("utf8").on("data", (chunk: string) => this.output.push(chunk));
+    child.stderr?.setEncoding("utf8").on("data", (chunk: string) => this.output.push(chunk));
   }
 
-  public static async startAsync(testInfo: TestInfo): Promise<TestApp> {
+  public static async launchAsync(testInfo: TestInfo, dataFiles: Readonly<Record<string, string>>): Promise<TestApp> {
     const root = await mkdtemp(path.join(tmpdir(), TestApp.FOLDER_PREFIX));
     const dataDirectory = path.join(root, "data");
     const deviceDirectory = path.join(root, "device");
     await mkdir(dataDirectory);
     await mkdir(deviceDirectory);
+    for (const [name, text] of Object.entries(dataFiles))
+      await writeFile(path.join(dataDirectory, name), text);
     testInfo.annotations.push({ type: "app folders", description: root });
     const application = await _electron.launch({
       executablePath: (await readFile(TestAppLayout.EXECUTABLE_RECORD, "utf8")).trim(),
       args: [TestAppLayout.DEVELOPMENT_PACKAGE, `--data-dir=${dataDirectory}`, `--device-dir=${deviceDirectory}`, ...TestApp.LAUNCH_ARGUMENTS],
       cwd: TestAppLayout.APP_FOLDER
     });
-    const window = await application.firstWindow();
-    await expect(window.locator("nol-window")).toBeVisible();
-    return new TestApp(application, window, dataDirectory, deviceDirectory, testInfo);
+    return new TestApp(application, await application.firstWindow(), dataDirectory, deviceDirectory, testInfo);
+  }
+
+  public async waitForStartAsync(): Promise<void> {
+    await expect(this.window.locator(TestApp.WINDOW)).toBeVisible();
+    await expect(this.window.locator(TestApp.SETTINGS_BUTTON), "The app's window never ended its start: its Settings button, which it enables once it has activated the modules and enabled their commands, stayed disabled.").toBeEnabled();
   }
 
   public get failedModules(): Locator {
@@ -82,6 +93,7 @@ export class TestApp {
   }
 
   public async runCommandAsync(text: string, command: string): Promise<void> {
+    await this.waitForStartAsync();
     await this.window.keyboard.press(TestApp.COMMAND_SEARCH_KEY);
     const field = this.window.getByRole("combobox", { name: TestApp.COMMAND_SEARCH_FIELD });
     await expect(field).toBeFocused();
@@ -153,15 +165,17 @@ export class TestApp {
         await this.closeAsync();
       }
       finally {
-        await this.attachRuntimeLogAsync();
+        await this.attachLogsAsync();
       }
     }
   }
 
-  private async attachRuntimeLogAsync(): Promise<void> {
-    const log = path.join(this.dataDirectory, TestApp.RUNTIME_LOG);
-    if (existsSync(log))
-      await this.testInfo.attach(TestApp.RUNTIME_LOG_NAME, { path: log, contentType: "text/plain" });
+  private async attachLogsAsync(): Promise<void> {
+    const logs = path.join(this.dataDirectory, TestApp.LOGS_FOLDER);
+    const files = existsSync(logs) ? (await readdir(logs)).sort() : [];
+    for (const file of files)
+      await this.testInfo.attach(file, { path: path.join(logs, file), contentType: "text/plain" });
+    await this.testInfo.attach(TestApp.OUTPUT_NAME, { body: this.output.join(""), contentType: "text/plain" });
   }
 
   private async closeAsync(): Promise<void> {
