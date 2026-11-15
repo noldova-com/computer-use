@@ -44,8 +44,7 @@ The tests that drive the operating system for real need a person's signed-in des
 
 The pull request that changes the version writes that version's section in [CHANGELOG.md](CHANGELOG.md) from the pull requests merged since the previous version, and no other pull request edits the file.
 
-The module's packages are published together at one version to npm, by the Release workflow, `.github/workflows/release-npm.yml`, and a release never deletes a published version.
-The first publish uses a one-time token that only the `release` environment holds, `NPM_FIRST_PUBLISH_TOKEN`, since npm's trusted publishing needs each package to exist; every later publish uses trusted publishing, so no token is stored.
+The module's packages are published together at one version to npm, by the Release workflow, `.github/workflows/release-npm.yml`, through npm's trusted publishing, so no token is stored, and a release never deletes a published version.
 
 - **It starts by hand only,** with two inputs: the version, which `version.json` and the root `package.json` hold, and the full hash of the commit on `main` to release.
 - **It calls the organization's shared npm release workflow,** `release-npm.yml` in `noldova-com/.github`, pinned to v2.32.0's commit, whose README says what each job does and with which permissions, in the `release` environment, which holds the publish approval.
