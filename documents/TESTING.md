@@ -197,7 +197,8 @@ macOS ties the grant of ad-hoc signed code to its code hash.
 A rebuild of the development app keeps the grants, because the app doesn't hold them; an update of the program that starts it may drop them ([open decision 2](#7-open-decisions)).
 The grant check before the first test ([section 1](#native-tests-with-grants)) reports a dropped grant by the code signature of the process that should hold it.
 
-Members never change privacy or security settings, with one exception: the CI job "Desktop end-to-end, macOS arm64", on GitHub's hosted image only, writes Screen Recording and Accessibility for the test app into that runner's TCC database before its spec, through `npm run test:e2e:grant-hosted-macos`, which refuses to run anywhere but a GitHub-hosted macOS runner.
+Members never change privacy or security settings, with one exception: two CI jobs, on GitHub's hosted macOS image only, write Screen Recording and Accessibility for the test app into that runner's TCC database before the desktop end-to-end spec, through `npm run test:e2e:grant-hosted-macos`, which refuses to run anywhere but a GitHub-hosted macOS runner.
+They are the Build and test workflow's job "Desktop end-to-end, macOS arm64", and the Flake proof workflow's macOS job when a proof of that spec names the step in its `prepare` input, as `test:e2e:prepare test:e2e:grant-hosted-macos`; no other job runs it.
 The same step writes a far-future date for the test app's executable into that runner's `~/Library/Group Containers/group.com.apple.replayd/ScreenCaptureApprovals.plist`, as GitHub's image does for its own runner: from macOS 15 a Screen Recording grant alone still lets the system ask, in an alert over the screen, whether the app may keep capturing without the window picker, and that alert covers the test window.
 It never runs on a test computer or a member's own computer.
 A test computer's grants are given by a person at it.
