@@ -34,8 +34,7 @@ export class TestApp {
   private static readonly LOGS_FOLDER: string = "logs";
   private static readonly OUTPUT_NAME: string = "main-process-output.txt";
   private static readonly WINDOW: string = "nol-window";
-  private static readonly WORKSPACE: string = "nol-workspace";
-  private static readonly STARTUP: string = "nol-startup";
+  private static readonly SETTINGS_BUTTON: string = ".nol-window-row-settings";
 
   public readonly window: Page;
   public readonly dataDirectory: string;
@@ -74,8 +73,7 @@ export class TestApp {
 
   public async waitForStartAsync(): Promise<void> {
     await expect(this.window.locator(TestApp.WINDOW)).toBeVisible();
-    await expect(this.window.locator(TestApp.WORKSPACE), "The app's window never ended its start, so it never had the runtime's commands.").toBeVisible();
-    await expect(this.window.locator(TestApp.STARTUP), "The app's window still shows its start.").toHaveCount(0);
+    await expect(this.window.locator(TestApp.SETTINGS_BUTTON), "The app's window never ended its start: its Settings button, which it enables once it has activated the modules and enabled their commands, stayed disabled.").toBeEnabled();
   }
 
   public get failedModules(): Locator {
