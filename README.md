@@ -206,7 +206,7 @@ Neither is declared, and the runtime never uses either. Both ship in the publish
 CI runs it on Linux x64; locally it runs after the same two steps, under a display.
 `npm run test:e2e:desktop` runs the full in-app suite, `e2e/desktop/`, with the module switched on: the session grant and an app grant, a screenshot, a window read, a click on the native test window's Save button, the status bar item, the system-wide stop key pressed through the operating system, the item's click, and Resume.
 CI runs it on Windows x64, in the hosted runner's interactive desktop session; it also runs on the Windows test computers, one test at a time and never beside the native tests, since it drives the real screen, pointer and keyboard.
-On macOS it isn't run yet: there the app's runtime needs Screen Recording and Accessibility for the development app, which only a person gives, and no test computer yet keeps that grant across runs, so the native tests cover the macOS backend meanwhile.
+On macOS it isn't run yet ([#3](https://github.com/noldova-com/computer-use/issues/3)): there the app's runtime needs Screen Recording and Accessibility for the development app, which only a person gives, and no test computer yet keeps that grant across runs, so the native tests cover the macOS backend meanwhile.
 
 "Build and test / All targets" also runs on every push to `main` and every run started by hand.
 [documents/TESTING.md](documents/TESTING.md) says how the tests are layered and what each target runs.
