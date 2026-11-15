@@ -119,7 +119,7 @@ It names each exclusion with its reason before the tests run, passes it to the t
 |---|---|
 | `src/noldova.computer-use.runtime/src/jxa/mac-desktop.ts` | The macOS input process's script, which macOS's JavaScript for Automation host runs as `jxa/mac-desktop.js`, with that host's globals, so Node.js can't load it and no package test does. `mac-backend.native.ts` covers it on macOS through the runtime's backend. |
 
-Before the suite, `npm test` runs the test-wait check: it reads every `.ts`, `.cjs`, `.js` and `.mjs` file under the parts' `tests/` folders, and fails on a fixed pause, or a fixed number of event-loop turns, in a file this table doesn't list, and on a listed file that no longer pauses.
+Before the suite, `npm test` runs the test-wait check: it reads every `.ts`, `.cjs`, `.js` and `.mjs` file under the parts' `tests/` folders, and the `.ts` files under `e2e/tests/`, and fails on a fixed pause, or a fixed number of event-loop turns, in a file this table doesn't list, and on a listed file that no longer pauses.
 A pause is an import or a `require` of `timers/promises`, `scheduler.wait`, `Atomics.wait`, a `setTimeout` with a fixed time, or a `setImmediate`.
 
 | Test file | Why it pauses |

@@ -12,6 +12,7 @@ import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { HostedMacRunner } from "./fixtures/hosted-mac-runner.ts";
 import { TestAppLayout } from "./fixtures/test-app-layout.ts";
 
 const run = promisify(execFile);
@@ -30,11 +31,10 @@ class HostedMacGrants {
   private static readonly EXECUTABLES: string = `${path.sep}Contents${path.sep}MacOS${path.sep}`;
   private static readonly REQUIREMENT_LINE: RegExp = /^(?:# )?designated => (.+)$/;
   private static readonly IDENTIFIER: RegExp = /^[A-Za-z0-9.-]+$/;
-  private static readonly NOT_HOSTED: string = "Only a GitHub-hosted macOS runner grants the test app here; on any other Mac a person gives the grants.";
 
   public static async runAsync(): Promise<void> {
-    if (process.platform !== "darwin" || process.env["GITHUB_ACTIONS"] !== "true" || process.env["RUNNER_ENVIRONMENT"] !== "github-hosted")
-      throw new Error(HostedMacGrants.NOT_HOSTED);
+    if (!HostedMacRunner.isHosted(process.platform, process.env))
+      throw new Error(HostedMacRunner.NOT_HOSTED);
     const executable = (await readFile(TestAppLayout.EXECUTABLE_RECORD, "utf8")).trim();
     const end = executable.lastIndexOf(HostedMacGrants.EXECUTABLES);
     if (end < 0)
