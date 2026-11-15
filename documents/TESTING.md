@@ -85,7 +85,7 @@ These tests run in the signed-in desktop session of a macOS test computer; CI do
 
 On GitHub's `macos-15` image (macOS 15.7.9, ARM64), one probe found that every process a job starts already holds Screen Recording and Accessibility.
 The image grants them to the runner's own processes, which are responsible for the processes a job starts, and runs with System Integrity Protection off.
-Members never change these grants, with one exception, the end-to-end job of [section 3](#3-operating-system-grants).
+Members never change these grants, with one exception, the two CI jobs of [section 3](#3-operating-system-grants), on GitHub's hosted macOS image only.
 An image update could drop them; the grant check before the first test then fails the run and names them.
 
 They cover capture of other apps' windows and of the whole screen, input into the test window, the coordinate check of [section 4](#4-keeping-input-inside-the-test-window) at that display's scale, and the stop control halting input.
