@@ -202,7 +202,7 @@ Neither is declared, and the runtime never uses either. Both ship in the publish
 ### End-to-end tests
 
 `npm run test:e2e:prepare` copies the fixture app in `e2e/app/` to `_build/e2e-app`, installs the module there from its packed archives in `_packages`, and prepares Noldova Desktop 0.0.1's development app, so it runs after `npm run build`.
-`npm run test:e2e` type-checks `e2e/` and runs the CI suite, `e2e/specs/`: on Linux, a real app on Noldova Desktop 0.0.1 shows the module as unavailable, with no switch, no failed module, no status bar item and no `computer_` tool.
+`npm run test:e2e` type-checks `e2e/` and runs the CI suite, `e2e/specs/`: on Linux, a real app on Noldova Desktop 0.0.1 shows the module as unavailable, with no switch, no failed module, no status bar item and no `computer_` tool, and a command run while the app's window is still starting waits for the start to end.
 CI runs it on Linux x64; locally it runs after the same two steps, under a display.
 `npm run test:e2e:desktop` runs the full in-app suite, `e2e/desktop/`, with the module switched on: the session grant and an app grant, a screenshot, a window read, a click on the native test window's Save button, the status bar item, the system-wide stop key pressed through the operating system, the item's click, and Resume.
 CI runs it on Windows x64, in the hosted runner's interactive desktop session; it also runs on the Windows test computers, one test at a time and never beside the native tests, since it drives the real screen, pointer and keyboard.
