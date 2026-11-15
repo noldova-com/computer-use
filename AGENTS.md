@@ -23,4 +23,5 @@ Read the owner before you work on its subject, and change a rule there.
 - The module names no app: an app adds it, hosts its tools and answers its permission requests ([ARCHITECTURE.md](documents/ARCHITECTURE.md#3-boundaries)).
 - It installs Noldova Desktop's packages and `@noldova/ui.components.angular` as published versions; never copy, fork or override their files, and ask for a change through an issue in their repositories.
 - It never changes the operating system's privacy or security settings: it reports a missing grant, and the person grants it.
+  The one exception is the CI job "Desktop end-to-end, macOS arm64", which on a GitHub-hosted runner only grants the test app Screen Recording and Accessibility in that runner's TCC database before its spec ([TESTING.md](documents/TESTING.md#3-operating-system-grants)); nothing else does, on any other computer.
 - A test that sends input keeps it inside its own test window, as [TESTING.md](documents/TESTING.md) says.

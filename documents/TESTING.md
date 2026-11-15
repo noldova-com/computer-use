@@ -13,7 +13,7 @@ This document adds only what the module needs.
 | Package tests | Fakes of the operating system, and the base's published runtime package | The module's own logic, and its tools in the base's real tool registry and permission center | Any operating-system behavior, or what the app's permission card shows |
 | Native tests without grants | A desktop session, no grant | Capture and input end to end where no grant is needed, and the module's refusals where a grant is missing | Capture and input on macOS, native Wayland |
 | Native tests with grants | A desktop session and the grants in [section 3](#3-operating-system-grants) | Capture and input on macOS | What the operating system shows the person |
-| End-to-end tests | A fixture app on Noldova Desktop 0.0.1 holding the module from its packed packages; a signed-in desktop session for the full in-app test | The module inside a real app: unavailable on Linux, and on Windows its grants, tools, status bar item and stop key | What the app's own permission card shows |
+| End-to-end tests | A fixture app on Noldova Desktop 0.0.1 holding the module from its packed packages; a signed-in desktop session for the full in-app test | The module inside a real app: unavailable on Linux, and on Windows and macOS its grants, tools, status bar item and stop key | What the app's own permission card shows |
 | Checks by a person | A person at the machine | The operating system's prompts and settings, and what the person sees | Anything automatic |
 
 ### Package tests
@@ -84,7 +84,7 @@ These tests run in the signed-in desktop session of a macOS test computer; CI do
 
 On GitHub's `macos-15` image (macOS 15.7.9, ARM64), one probe found that every process a job starts already holds Screen Recording and Accessibility.
 The image grants them to the runner's own processes, which are responsible for the processes a job starts, and runs with System Integrity Protection off.
-Members never change these grants.
+Members never change these grants, with one exception, the end-to-end job of [section 3](#3-operating-system-grants).
 An image update could drop them; the grant check before the first test then fails the run and names them.
 
 They cover capture of other apps' windows and of the whole screen, input into the test window, the coordinate check of [section 4](#4-keeping-input-inside-the-test-window) at that display's scale, and the stop control halting input.
@@ -159,7 +159,7 @@ The end-to-end tests run the module inside a real app on Noldova Desktop 0.0.1, 
 - **In CI, Linux x64:** the module shows as unavailable in the app's Modules document, with no switch and no actions, no module shows as failed, no status bar item shows, its setting isn't offered, and an agent session lists no `computer_` tool.
 - **In CI, Linux x64, the fixture's own start:** a command run while the app's window still shows its start, held there by data from before the shell until the test moves it aside, waits for the start to end and then opens the Modules document.
 - **In CI, Windows x64, and on the Windows test computers:** the job "Desktop end-to-end, Windows x64" of `.github/workflows/build-and-test.yml` runs it in the hosted runner's interactive desktop session; with the module switched on, the session grant and an app grant for the native test window's app, a screenshot, a window read that lists the Save button, a click on it by its control, the status bar item while the session controls the screen, the system-wide stop key pressed through the operating system, Resume, the item's click, Resume again, and the item hiding when the session ends.
-- **macOS, written for but not run yet ([#3](https://github.com/noldova-com/computer-use/issues/3)):** the spec runs on macOS too, but no test computer has the grants for it: the app's runtime is its own responsible process there, so the grants must name the development app, which only a person gives, and the spec runs there once a test computer keeps that grant across runs; until then the native tests cover the macOS backend.
+- **In CI, macOS arm64:** the job "Desktop end-to-end, macOS arm64" runs the same spec on GitHub's hosted `macos-15` image. The app's runtime is its own responsible process there, so the runner's own grants don't reach it, and before the spec the job's step "Grant the test app on the hosted macOS runner" writes Screen Recording and Accessibility for the test app into the runner's TCC database, by the app's bundle identifier and designated requirement ([section 3](#3-operating-system-grants)). No test computer runs it, since there only a person gives the grants and an ad-hoc signed app's grant doesn't outlast its code hash.
 
 The fixture app's only other module is its own agent host, `agent-double`, which an app brings anyway, since Noldova Desktop has no agent host or permission card of its own: it answers each request with the answer the test planned before the call, falling back from Allow always to Allow once when a request doesn't offer it, and denies anything unplanned, so an unexpected request fails the call.
 The prepare step pins the module's package to its exact version, as Noldova Desktop's build requires, after npm installs it from its archive, since the archives change with every commit and a committed lockfile for them would always be stale.
@@ -196,7 +196,8 @@ macOS ties the grant of ad-hoc signed code to its code hash.
 A rebuild of the development app keeps the grants, because the app doesn't hold them; an update of the program that starts it may drop them ([open decision 2](#7-open-decisions)).
 The grant check before the first test ([section 1](#native-tests-with-grants)) reports a dropped grant by the code signature of the process that should hold it.
 
-Members never change privacy or security settings.
+Members never change privacy or security settings, with one exception: the CI job "Desktop end-to-end, macOS arm64", on GitHub's hosted image only, writes Screen Recording and Accessibility for the test app into that runner's TCC database before its spec, through `npm run test:e2e:grant-hosted-macos`, which refuses to run anywhere but a GitHub-hosted macOS runner.
+It never runs on a test computer or a member's own computer.
 A test computer's grants are given by a person at it.
 
 ## 4. Keeping input inside the test window

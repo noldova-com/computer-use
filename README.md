@@ -63,6 +63,7 @@ Every pull request into `main` must pass every check below before it merges.
 | Check / Linked issue | The organization's shared check, which `.github/workflows/require-linked-issue.yml` calls from its `check` job: the PR description has a standalone `Issue: #N`, `Issue #N` or closing reference, such as `Closes #N`, that names an issue in this repository. |
 | Build and test / All targets | Every target's job and the end-to-end job passed. |
 | Desktop end-to-end, Windows x64 | The in-app suite, `npm run test:e2e:desktop`, passed with the module switched on, on a GitHub-hosted Windows runner's desktop session. |
+| Desktop end-to-end, macOS arm64 | The same suite passed on a GitHub-hosted macOS arm64 runner, after the job granted the test app there. |
 
 `.github/workflows/build-and-test.yml` calls the organization's shared `build-and-test.yml`, v2.32.0, with `publishes: true` and its end-to-end inputs, as the `.github` repository's README describes it.
 It grants `packages: read`, though no package comes from GitHub Packages, since the shared workflow's jobs ask for it and a called job can't get more than its caller grants; the flake proof and the relock grant it for the same reason.
@@ -206,7 +207,7 @@ Neither is declared, and the runtime never uses either. Both ship in the publish
 CI runs it on Linux x64; locally it runs after the same two steps, under a display.
 `npm run test:e2e:desktop` runs the full in-app suite, `e2e/desktop/`, with the module switched on: the session grant and an app grant, a screenshot, a window read, a click on the native test window's Save button, the status bar item, the system-wide stop key pressed through the operating system, the item's click, and Resume.
 CI runs it on Windows x64, in the hosted runner's interactive desktop session; it also runs on the Windows test computers, one test at a time and never beside the native tests, since it drives the real screen, pointer and keyboard.
-On macOS it isn't run yet ([#3](https://github.com/noldova-com/computer-use/issues/3)): there the app's runtime needs Screen Recording and Accessibility for the development app, which only a person gives, and no test computer yet keeps that grant across runs, so the native tests cover the macOS backend meanwhile.
+CI runs it on macOS arm64 too, on GitHub's hosted runner: there the app's runtime is its own responsible process and needs Screen Recording and Accessibility for the development app, so first `npm run test:e2e:grant-hosted-macos` writes those two grants for the test app into that runner's TCC database; it refuses to run anywhere but a GitHub-hosted macOS runner ([TESTING.md](documents/TESTING.md#3-operating-system-grants)).
 
 "Build and test / All targets" also runs on every push to `main` and every run started by hand.
 [documents/TESTING.md](documents/TESTING.md) says how the tests are layered and what each target runs.
