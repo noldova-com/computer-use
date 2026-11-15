@@ -95,6 +95,7 @@ export class TestApp {
   }
 
   public async runCommandAsync(text: string, command: string): Promise<void> {
+    await this.waitForStartAsync();
     await this.window.keyboard.press(TestApp.COMMAND_SEARCH_KEY);
     const field = this.window.getByRole("combobox", { name: TestApp.COMMAND_SEARCH_FIELD });
     await expect(field).toBeFocused();
