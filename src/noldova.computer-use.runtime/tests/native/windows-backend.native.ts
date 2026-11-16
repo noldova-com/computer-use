@@ -53,6 +53,7 @@ const MOVE_AWAY = 600;
 const GLIDE_START_INSET = 40;
 
 const NOTIFICATION_POLL_MS = 250;
+const HELD_READ_LIMIT_MS = 300;
 
 describe("the Windows backend on the desktop", { skip: process.platform !== "win32" ? "The Windows backend runs on Windows only." : false }, () => {
   const session = new WindowsDesktopSession();
@@ -446,6 +447,29 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
       && WindowsDesktopSession.isInside(front.frame, new DesktopPoint(save.bounds.x + save.bounds.width - 1, save.bounds.y + save.bounds.height - 1)), `The Save button lies at ${JSON.stringify(save.bounds)}.`);
     assert.deepEqual(tree.controls.filter(t => t.app.id !== front.app.id).map(t => t.app.id), []);
     assert.equal(tree.isTimedOut, false);
+  });
+
+  it("ends a read of the test window while its thread is held at the read's limit, leaving no UI Automation call running into the next request", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    session.window.send("hold");
+    await session.window.takeLineAsync("held", TIMEOUT_MS);
+    let isReleased = false;
+    try {
+      const held = await session.addon.readControls(target, null, HELD_READ_LIMIT_MS);
+      const next = await failureOfAsync(() => session.addon.readControls(target, null, HELD_READ_LIMIT_MS));
+      session.window.send("release");
+      isReleased = true;
+      await session.window.takeLineAsync("released", TIMEOUT_MS);
+
+      assert.deepEqual([held.controls.length, held.timedOut], [0, true]);
+      assert.equal(next, null, `The next read failed: ${String(next)}`);
+    } finally {
+      if (!isReleased) {
+        session.window.send("release");
+        await session.window.takeLineAsync("released", TIMEOUT_MS);
+      }
+    }
   });
 
   it("finds the Save button again, finds it at its point but not at the marker's, and a click at its point presses it", async () => {

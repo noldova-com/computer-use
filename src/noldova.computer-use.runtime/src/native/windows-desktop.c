@@ -103,6 +103,7 @@
 #define MAX_CONTROL_TIMEOUT_MS 60000
 #define UIA_TIMEOUT_MS 1000
 #define CONTROL_GRACE_MS 50
+#define CONTROL_START_MS 10000
 #define MAX_BORDER_FRAMES 16
 #define BORDER_SIDES 4
 #define BORDER_TIMEOUT_MS 5000
@@ -2514,6 +2515,7 @@ typedef struct {
   uint32_t handle_read;
   uint32_t handle_index;
   POINT at;
+  DWORD limit_ms;
   ULONGLONG deadline;
   BOOL is_finished;
   BOOL is_abandoned;
@@ -2572,6 +2574,7 @@ static CONDITION_VARIABLE control_changed = CONDITION_VARIABLE_INIT;
 static control_request *control_pending = NULL;
 static BOOL control_busy = FALSE;
 static BOOL control_started = FALSE;
+static BOOL control_ready = FALSE;
 static IUIAutomation2 *automation = NULL;
 static IUIAutomationCondition *control_view = NULL;
 static IUIAutomationTreeWalker *raw_walker = NULL;
@@ -2594,6 +2597,8 @@ static void let_go_request(control_request *request) {
 static BOOL is_past(ULONGLONG deadline) {
   return GetTickCount64() >= deadline;
 }
+
+static BOOL limit_to_time_left(ULONGLONG deadline);
 
 static void free_references(control_references *references) {
   uint32_t index;
@@ -2829,7 +2834,7 @@ static void add_children(control_request *request, control_references *reference
       continue;
     }
     if (is_own && !row.is_password) {
-      if (is_past(request->deadline)) {
+      if (!limit_to_time_left(request->deadline)) {
         request->is_timed_out = TRUE;
         *is_going = FALSE;
         request->left_out++;
@@ -2852,13 +2857,17 @@ static BOOL read_children(control_request *request, control_references *referenc
   IUIAutomationElementArray *others = NULL;
   int taken = 0;
   BOOL is_going = TRUE;
-  if (is_past(request->deadline)) {
+  if (!limit_to_time_left(request->deadline)) {
     request->is_timed_out = TRUE;
     return FALSE;
   }
   if (FAILED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->own_children, read_cache, &children)))
     children = NULL;
   add_children(request, references, visit, visit_count, children, TRUE, &taken, &is_going);
+  if (is_going && !limit_to_time_left(request->deadline)) {
+    request->is_timed_out = TRUE;
+    is_going = FALSE;
+  }
   if (is_going && SUCCEEDED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, &others)))
     add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
   if (others != NULL)
@@ -2874,7 +2883,11 @@ static void add_popup(control_request *request, control_references *references, 
   control_row row;
   int added;
   RECT area;
-  if (is_past(request->deadline) || !read_shown_frame(window, &area))
+  if (!limit_to_time_left(request->deadline)) {
+    request->is_timed_out = TRUE;
+    return;
+  }
+  if (!read_shown_frame(window, &area))
     return;
   if (SUCCEEDED(IUIAutomation2_ElementFromHandle(automation, window, &element)) && element != NULL
       && SUCCEEDED(IUIAutomationElement_BuildUpdatedCache(element, read_cache, &cached)) && cached != NULL) {
@@ -2957,8 +2970,15 @@ static void run_read(control_request *request) {
       return;
     }
     popup_count = list_popups(&request->target, popups);
+    if (!limit_to_time_left(request->deadline)) {
+      request->is_timed_out = TRUE;
+      return;
+    }
     if (FAILED(IUIAutomation2_ElementFromHandle(automation, request->target.window, &start)) || start == NULL) {
-      strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't find the window.");
+      if (is_past(request->deadline))
+        request->is_timed_out = TRUE;
+      else
+        strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't find the window.");
       return;
     }
     free_references(&under_references);
@@ -2967,6 +2987,11 @@ static void run_read(control_request *request) {
   references->read = ++control_reads;
   if (request->has_handle) {
     IUIAutomationElement *cached = NULL;
+    if (!limit_to_time_left(request->deadline)) {
+      request->is_timed_out = TRUE;
+      IUIAutomationElement_Release(start);
+      return;
+    }
     if (FAILED(IUIAutomationElement_BuildUpdatedCache(start, find_cache, &cached)) || cached == NULL
         || FAILED(IUIAutomationElement_get_CachedBoundingRectangle(cached, &area))) {
       strcpy_s(request->error, MAX_ERROR_TEXT, "The control is gone.");
@@ -3100,6 +3125,8 @@ static DWORD WINAPI run_controls(LPVOID parameter) {
   enter_physical_pixels();
   is_started = start_automation();
   AcquireSRWLockExclusive(&control_lock);
+  control_ready = TRUE;
+  WakeAllConditionVariable(&control_changed);
   for (;;) {
     control_request *request;
     while (control_pending == NULL)
@@ -3149,12 +3176,23 @@ static BOOL start_controls(void) {
 
 static void execute_control(napi_env env, void *data) {
   control_request *request = (control_request *)data;
+  ULONGLONG start_deadline;
   (void)env;
   AcquireSRWLockExclusive(&control_lock);
   if (!start_controls()) {
     ReleaseSRWLockExclusive(&control_lock);
     strcpy_s(request->failure, MAX_ERROR_TEXT, "The control thread couldn't start.");
     return;
+  }
+  if (request->kind != CONTROL_FOCUS) {
+    start_deadline = GetTickCount64() + CONTROL_START_MS;
+    while (!control_ready)
+      if (!wait_for_change(start_deadline)) {
+        ReleaseSRWLockExclusive(&control_lock);
+        strcpy_s(request->failure, MAX_ERROR_TEXT, "UI Automation didn't start in time.");
+        return;
+      }
+    request->deadline = GetTickCount64() + request->limit_ms;
   }
   while (control_busy)
     if (!wait_for_change(request->deadline)) {
@@ -3167,7 +3205,7 @@ static void execute_control(napi_env env, void *data) {
   control_pending = request;
   WakeAllConditionVariable(&control_changed);
   while (!request->is_finished)
-    if (!wait_for_change(request->deadline + (request->kind == CONTROL_READ ? 0 : CONTROL_GRACE_MS)))
+    if (!wait_for_change(request->deadline + CONTROL_GRACE_MS))
       break;
   if (request->is_finished) {
     strcpy_s(request->failure, MAX_ERROR_TEXT, request->error);
@@ -3342,7 +3380,7 @@ static napi_value read_timeout(napi_env env, napi_value value, control_request *
     napi_throw_range_error(env, ERROR_CODE, "The time limit must be from 1 to 60,000 milliseconds.");
     return NULL;
   }
-  request->deadline = GetTickCount64() + timeout_ms;
+  request->limit_ms = timeout_ms;
   return value;
 }
 
