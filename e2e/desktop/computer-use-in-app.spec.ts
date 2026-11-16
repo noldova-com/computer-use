@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { existsSync, readFileSync, rmSync } from "node:fs";
+
 import type { JsonReader } from "@noldova/context.json";
 
 import { AgentDouble } from "../fixtures/agent-double.ts";
@@ -47,6 +49,15 @@ const resumeAsync = async (app: TestApp, agent: AgentDouble): Promise<void> => {
 
 test.describe("computer use in a real app, with the operating system's grants", () => {
   test.skip(process.platform !== "win32" && process.platform !== "darwin", "Computer use has backends on Windows and macOS only.");
+
+  test.beforeEach(() => {
+    rmSync("C:\\Users\\Public\\noldova-read-steps.log", { force: true });
+  });
+
+  test.afterEach(() => {
+    const file = "C:\\Users\\Public\\noldova-read-steps.log";
+    console.log(existsSync(file) ? readFileSync(file, "utf8") : "PROBE no file");
+  });
 
   test("asks for the screen and the test window's app, sees and clicks the window, shows its status, and stops on the stop key and on its status bar item", async ({ app }) => {
     await app.openModulesAsync();

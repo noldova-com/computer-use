@@ -2540,7 +2540,26 @@ typedef struct {
   HWND focus_window;
   IUIAutomationCondition *own_children;
   IUIAutomationCondition *other_children;
+  ULONGLONG probe_started;
+  char probe[2048];
 } control_request;
+
+static ULONGLONG probe_automation_ms;
+
+static void probe_step(control_request *request, const char *label, long result) {
+  size_t length = strlen(request->probe);
+  if (length < sizeof request->probe - 64)
+    sprintf_s(request->probe + length, sizeof request->probe - length, "%s@%llu(%lx) ", label, GetTickCount64() - request->probe_started, (unsigned long)result);
+}
+
+static void probe_write(control_request *request, const char *outcome) {
+  FILE *file = NULL;
+  if (fopen_s(&file, "C:\\Users\\Public\\noldova-read-steps.log", "a") != 0 || file == NULL)
+    return;
+  fprintf(file, "PROBE kind %d %s at %llu ms, automation start %llu ms, listed %u, timedOut %d: %s\n", (int)request->kind, outcome,
+    GetTickCount64() - request->probe_started, probe_automation_ms, request->count, request->is_timed_out, request->probe);
+  fclose(file);
+}
 
 typedef struct {
   IUIAutomationElement *element;
@@ -2856,11 +2875,19 @@ static BOOL read_children(control_request *request, control_references *referenc
     request->is_timed_out = TRUE;
     return FALSE;
   }
-  if (FAILED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->own_children, read_cache, &children)))
-    children = NULL;
+  {
+    HRESULT probe_result = IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->own_children, read_cache, &children);
+    probe_step(request, "own", probe_result);
+    if (FAILED(probe_result))
+      children = NULL;
+  }
   add_children(request, references, visit, visit_count, children, TRUE, &taken, &is_going);
-  if (is_going && SUCCEEDED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, &others)))
-    add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
+  if (is_going) {
+    HRESULT probe_result = IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, &others);
+    probe_step(request, "other", probe_result);
+    if (SUCCEEDED(probe_result))
+      add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
+  }
   if (others != NULL)
     IUIAutomationElementArray_Release(others);
   if (children != NULL)
@@ -2957,7 +2984,12 @@ static void run_read(control_request *request) {
       return;
     }
     popup_count = list_popups(&request->target, popups);
-    if (FAILED(IUIAutomation2_ElementFromHandle(automation, request->target.window, &start)) || start == NULL) {
+    probe_step(request, "popups", popup_count);
+    {
+      HRESULT probe_result = IUIAutomation2_ElementFromHandle(automation, request->target.window, &start);
+      probe_step(request, "fromHandle", probe_result);
+    }
+    if (start == NULL) {
       strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't find the window.");
       return;
     }
@@ -2979,6 +3011,7 @@ static void run_read(control_request *request) {
     IUIAutomationElement_Release(cached);
   } else
     owner = (int)request->target.process_id;
+  probe_step(request, "owner", owner);
   if (!make_process_conditions(request, (DWORD)owner)) {
     strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't set up the read.");
     IUIAutomationElement_Release(start);
@@ -3098,7 +3131,9 @@ static DWORD WINAPI run_controls(LPVOID parameter) {
   BOOL is_started;
   (void)parameter;
   enter_physical_pixels();
+  probe_automation_ms = GetTickCount64();
   is_started = start_automation();
+  probe_automation_ms = GetTickCount64() - probe_automation_ms;
   AcquireSRWLockExclusive(&control_lock);
   for (;;) {
     control_request *request;
@@ -3107,6 +3142,7 @@ static DWORD WINAPI run_controls(LPVOID parameter) {
     request = control_pending;
     control_pending = NULL;
     ReleaseSRWLockExclusive(&control_lock);
+    probe_step(request, "taken", 0);
     if (!is_started)
       strcpy_s(request->error, MAX_ERROR_TEXT, control_failure);
     else if (are_timeouts_changed && !set_automation_timeouts(UIA_TIMEOUT_MS))
@@ -3119,6 +3155,8 @@ static DWORD WINAPI run_controls(LPVOID parameter) {
       run_hit(request);
     else
       run_focus(request);
+    probe_step(request, "ran", 0);
+    probe_write(request, "thread end");
     AcquireSRWLockExclusive(&control_lock);
     request->is_finished = TRUE;
     control_busy = FALSE;
@@ -3179,6 +3217,7 @@ static void execute_control(napi_env env, void *data) {
     request->answered = request->count;
     request->answered_left_out = request->published_left_out;
     request->is_answer_timed_out = TRUE;
+    probe_write(request, "abandoned");
     if (request->kind != CONTROL_READ)
       strcpy_s(request->failure, MAX_ERROR_TEXT, "UI Automation didn't answer in time.");
   }
@@ -3214,6 +3253,7 @@ static const char *check_focus(const target_window *target, DWORD focus_ms) {
   request->kind = CONTROL_FOCUS;
   request->target = *target;
   request->deadline = GetTickCount64() + focus_ms;
+  request->probe_started = GetTickCount64();
   execute_control(NULL, request);
   if (request->failure[0] != '\0' || !request->is_focus_read)
     reason = REASON_FOCUS_UNKNOWN;
@@ -3343,6 +3383,7 @@ static napi_value read_timeout(napi_env env, napi_value value, control_request *
     return NULL;
   }
   request->deadline = GetTickCount64() + timeout_ms;
+  request->probe_started = GetTickCount64();
   return value;
 }
 
