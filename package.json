@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "packageManager": "npm@11.19.0",
+  "packageManager": "npm@11.20.0",
   "engines": {
-    "node": "24.21.0",
-    "npm": "11.19.0"
+    "node": "26.13.1",
+    "npm": "11.20.0"
   },
   "scripts": {
     "build": "node scripts/build.ts",
@@ -35,7 +35,7 @@
     "@noldova/desktop.window": "0.0.1",
     "@noldova/ui.components.angular": "0.0.5",
     "@playwright/test": "1.63.0",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "typescript": "7.0.2"
   }
 }
