@@ -604,15 +604,17 @@ export interface IWindowsDesktopApi {
    * 50 levels and 2,000 controls; a control off screen, with no area, outside the window or of a process whose program can't be read
    * is left out with everything under it, and each control left out adds one to `leftOut`. A password field's value is never read;
    * another text control's value is read to its first 402 UTF-16 units, and every other value and name is cut there once it arrives.
-   * The time limit is checked before each request to UI Automation; one that runs out answers with what was read by then, while the
-   * control thread finishes the blocked request and drops its answer.
+   * The time limit starts once the control thread has started UI Automation, which a read waits for, at most 10 seconds. Each request
+   * to UI Automation waits only for the time the read has left, and a read whose time runs out answers with the controls it read,
+   * marked timed out, leaving no request running on the control thread.
    *
    * @param target The window to read, which must be the one in front.
    * @param underHandle The handle of a control of the latest whole read, or `null` for the whole window.
    * @param timeoutMs The read's time limit, in milliseconds.
    * @returns The controls, each after the control it lies in, how many were left out, and whether the time ran out.
    * @throws {Error} Rejects when the window isn't the target's, the handle isn't one of the latest read's, UI Automation fails, or the
-   * control thread is still blocked by an earlier request when the time runs out.
+   * control thread is still blocked by an earlier request when the time runs out, and with "UI Automation didn't start in time." when
+   * the control thread hasn't started UI Automation within 10 seconds.
    * @throws {AddonLoadException} Throws on the first call when the addon can't be loaded.
    *
    * @example
@@ -634,7 +636,8 @@ export interface IWindowsDesktopApi {
    * @param timeoutMs The search's time limit, in milliseconds.
    * @returns The control as it is now, or `null` when it is gone, its reference was freed, or it is another process's control that the read
    * listed by its app only.
-   * @throws {Error} Rejects when UI Automation fails or the time runs out.
+   * @throws {Error} Rejects when UI Automation fails or the time runs out, and with "UI Automation didn't start in time." when the
+   * control thread hasn't started UI Automation within 10 seconds.
    * @throws {AddonLoadException} Throws on the first call when the addon can't be loaded.
    *
    * @example
@@ -657,7 +660,8 @@ export interface IWindowsDesktopApi {
    * @param timeoutMs The check's time limit, in milliseconds.
    * @returns `true` when the element at the point is the control or one of its descendants; `false` otherwise, or when the
    * control's reference was freed.
-   * @throws {Error} Rejects when UI Automation fails or the time runs out.
+   * @throws {Error} Rejects when UI Automation fails or the time runs out, and with "UI Automation didn't start in time." when the
+   * control thread hasn't started UI Automation within 10 seconds.
    * @throws {AddonLoadException} Throws on the first call when the addon can't be loaded.
    *
    * @example
