@@ -359,8 +359,8 @@ describe("a step's time, end to end", { skip: process.platform !== "win32" && pr
 
         clock.begin("");
         const { frame } = await frontAsync();
-        const x = display.x + at.x / k;
-        const y = display.y + at.y / k;
+        const x: number = display.x + at.x / k;
+        const y: number = display.y + at.y / k;
         assert.ok(x >= frame.x + EDGE && x < frame.x + frame.width - EDGE && y >= frame.y + EDGE && y < frame.y + frame.height - EDGE, `The click's point ${x}, ${y} lies outside the test window's frame ${JSON.stringify(frame)}.`);
 
         clock.begin(CLICK);
