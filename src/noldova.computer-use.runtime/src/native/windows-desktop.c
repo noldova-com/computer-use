@@ -3184,14 +3184,16 @@ static void execute_control(napi_env env, void *data) {
     strcpy_s(request->failure, MAX_ERROR_TEXT, "The control thread couldn't start.");
     return;
   }
-  start_deadline = GetTickCount64() + CONTROL_START_MS;
-  while (!control_ready)
-    if (!wait_for_change(start_deadline)) {
-      ReleaseSRWLockExclusive(&control_lock);
-      strcpy_s(request->failure, MAX_ERROR_TEXT, "UI Automation didn't start in time.");
-      return;
-    }
-  request->deadline = GetTickCount64() + request->limit_ms;
+  if (request->kind != CONTROL_FOCUS) {
+    start_deadline = GetTickCount64() + CONTROL_START_MS;
+    while (!control_ready)
+      if (!wait_for_change(start_deadline)) {
+        ReleaseSRWLockExclusive(&control_lock);
+        strcpy_s(request->failure, MAX_ERROR_TEXT, "UI Automation didn't start in time.");
+        return;
+      }
+    request->deadline = GetTickCount64() + request->limit_ms;
+  }
   while (control_busy)
     if (!wait_for_change(request->deadline)) {
       ReleaseSRWLockExclusive(&control_lock);
@@ -3249,7 +3251,7 @@ static const char *check_focus(const target_window *target, DWORD focus_ms) {
   request->references = 1;
   request->kind = CONTROL_FOCUS;
   request->target = *target;
-  request->limit_ms = focus_ms;
+  request->deadline = GetTickCount64() + focus_ms;
   execute_control(NULL, request);
   if (request->failure[0] != '\0' || !request->is_focus_read)
     reason = REASON_FOCUS_UNKNOWN;
