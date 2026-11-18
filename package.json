@@ -33,7 +33,7 @@
     "@noldova/desktop.protocol": "0.0.4",
     "@noldova/desktop.runtime": "0.0.4",
     "@noldova/desktop.window": "0.0.4",
-    "@noldova/ui.components.angular": "0.0.5",
+    "@noldova/ui.components.angular": "0.0.12",
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.6",
     "typescript": "7.0.2"
