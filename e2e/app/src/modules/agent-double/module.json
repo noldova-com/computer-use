@@ -5,7 +5,7 @@
   "description": "Opens one agent session, calls the tools the end-to-end tests name and answers permission requests with the answers they plan, as an app's agent host would.",
   "parts": ["runtime"],
   "dependencies": {},
-  "noldovaDesktop": ">=0.0.3 <0.1.0",
+  "noldovaDesktop": ">=0.0.4 <0.1.0",
   "contributes": {
     "methods": [
       "agent-double.callTool",
