@@ -6,7 +6,7 @@
   "parts": ["runtime", "window"],
   "dependencies": {},
   "switchSetting": "computer-use.enabled",
-  "noldovaDesktop": ">=0.0.4 <0.1.0",
+  "noldovaDesktop": ">=0.0.5 <0.1.0",
   "platforms": ["windows", "macos"],
   "contributes": {
     "methods": ["computer-use.stop", "computer-use.statusRead", "computer-use.borderColorSet"],
