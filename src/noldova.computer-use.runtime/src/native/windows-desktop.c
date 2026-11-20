@@ -3186,8 +3186,7 @@ static void diag_warm(void) {
   }
   QueryPerformanceCounter(&after);
   QueryPerformanceFrequency(&frequency);
-  sprintf_s(line, sizeof line, "warm ms=%lld
-", (after.QuadPart - before.QuadPart) * 1000 / frequency.QuadPart);
+  sprintf_s(line, sizeof line, "warm ms=%lld\n", (after.QuadPart - before.QuadPart) * 1000 / frequency.QuadPart);
   diag_write(line);
 }
 
