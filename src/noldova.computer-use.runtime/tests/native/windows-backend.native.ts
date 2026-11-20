@@ -35,6 +35,7 @@ const ACRYLIC_BACKDROP = 3;
 const SYSTEM_BACKDROP_BUILD = 22621;
 const S_OK = "0x00000000";
 const CAPTURE_DEADLINE_MS = 500;
+const FOCUS_MS = 500;
 const NOTIFICATION_TAG = "computer-use-test";
 const NOTIFICATION_GROUP = "computer-use-native";
 const NOTIFIER = "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; $app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe'";
@@ -107,6 +108,25 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     return () => {
       mark.call(addon);
     };
+  }
+
+  function partialSeamOf(addon: unknown): (count: number) => void {
+    assert.ok(typeof addon === "object" && addon !== null && "partialNextSend" in addon, "The addon has no partial-send seam.");
+    const limit = addon.partialNextSend;
+    assert.ok(typeof limit === "function", "The addon's partial-send seam isn't a function.");
+
+    return count => {
+      limit.call(addon, count);
+    };
+  }
+
+  async function heldKeysAsync(): Promise<string> {
+    let line = "";
+    for (const deadline = Date.now() + TIMEOUT_MS; line !== "keys enter False tab False" && Date.now() < deadline;) {
+      session.window.send("keys");
+      line = await session.window.takeLineAsync("keys ", TIMEOUT_MS);
+    }
+    return line;
   }
 
   before(async () => {
@@ -635,6 +655,24 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     await backend.input.typeTextAsync(front.target, "q", AbortSignal.timeout(TIMEOUT_MS));
 
     assert.match(await session.window.takeLineAsync("text ", TIMEOUT_MS), /q$/);
+  });
+
+  it("releases the Enter or the Tab a typed text's partial send pressed, and reports how much of it Windows inserted", async () => {
+    const stopSendAfter = partialSeamOf(createRequire(import.meta.url)(WindowsBackend.addonFile));
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.target.app.id };
+
+    for (const [text, pressed] of [["ab\n", "enter"], ["ab\t", "box left"]] as const) {
+      session.window.send("focus box");
+      assert.equal(await session.window.takeLineAsync("box focused ", TIMEOUT_MS), "box focused True");
+      session.window.takePending();
+      stopSendAfter(5);
+
+      assert.throws(() => session.addon.typeText(target, text, FOCUS_MS), { message: "Windows inserted 5 of 6 input events; another thread blocks input." }, JSON.stringify(text));
+      assert.equal(await session.window.takeLineAsync(pressed, TIMEOUT_MS), pressed);
+      assert.equal(await heldKeysAsync(), "keys enter False tab False", `The key ${JSON.stringify(text.at(-1))} pressed is still held.`);
+    }
+    await session.reopenAsync();
   });
 
   it("presses Escape, which closes the test window", async () => {
