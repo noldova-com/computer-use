@@ -192,12 +192,14 @@ The base constructs the part with no arguments, so an app never passes them.
 
 ### Internal test seams
 
-Two inputs exist only for the native tests, since no test can make input that the operating system counts as the person's.
-Neither is declared, and the runtime never uses either. Both ship in the published package, inert unless a test calls them, and each can only make input be refused, so without them the code reads the person's real input. The Windows mark is taken as the next input call starts, so a call refused before its send doesn't leave it for a later one.
+Four inputs exist only for the native tests, since no test can make input that the operating system counts as the person's, or make a drag's step check fail or its input process end while its button is down.
+None is declared, and the runtime never uses any. All ship in the published package, inert unless a test calls them, and each can only make input be refused or a drag end early, so without them the code reads the person's real input and drags to the end. The Windows mark is taken as the next input call starts, so a call refused before its send doesn't leave it for a later one.
 
 | Seam | File | Why |
 |---|---|---|
 | The Windows addon's export `personInputBeforeNextSend()` | `src/noldova.computer-use.runtime/src/native/windows-desktop.c` | Windows flags every input a test sends as injected, which the addon never counts as the person's, so the export marks one person's input that the next input call takes as it starts: its checks before `SendInput` see the person's input count one higher, so a test proves a typed text, a key press, a click and a drag are refused there with nothing sent. |
+| The macOS input process's launch argument `--fail-drag-step` | `src/noldova.computer-use.runtime/src/jxa/mac-desktop.ts` | A step's check throws only when the system fails, such as with no screen during a display change, which no test can arrange, so with the argument each drag step after the press throws: a test proves the drag still releases its button and modifiers. |
+| The macOS input process's launch argument `--hold-drag-step` | `src/noldova.computer-use.runtime/src/jxa/mac-desktop.ts` | The call's timer ends the input process only after 10 s, so with the argument each drag step after the press waits 60 s: a test whose call times out sooner proves the backend releases the button and modifiers through a new process. |
 | The macOS input process's launch argument `--person-input-before-send` | `src/noldova.computer-use.runtime/src/jxa/mac-desktop.ts` | A test can't place a person's move inside a slow focus read that still succeeds, so with the argument the target check's last step before sending reports the person's input; only that step reads it. |
 
 ### End-to-end tests

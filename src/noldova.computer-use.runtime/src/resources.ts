@@ -220,6 +220,7 @@ export class Resources {
     movePointer: "movePointer",
     click: "click",
     drag: "drag",
+    release: "release",
     scroll: "scroll",
     typeText: "typeText",
     pressKey: "pressKey",
@@ -987,6 +988,10 @@ export class Resources {
 
   public static formatStopFileLeft(message: string): string {
     return `A drag's stop file couldn't be removed: ${message}`;
+  }
+
+  public static formatDragReleaseFailed(message: string): string {
+    return `A drag whose input process ended couldn't release its button and modifiers: ${message}`;
   }
 
   public static formatMacScriptTimedOut(method: string, timeoutMs: number): string {

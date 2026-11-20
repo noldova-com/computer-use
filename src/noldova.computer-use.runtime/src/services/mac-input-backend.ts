@@ -13,6 +13,7 @@ import path from "node:path";
 import { ArgumentOutOfRangeException } from "@noldova/context.exceptions";
 import type { IModuleLog } from "@noldova/desktop.runtime";
 
+import { MacScriptEndedException } from "../exceptions/mac-script-ended.exception.ts";
 import { MacStopFolderFailedException } from "../exceptions/mac-stop-folder-failed.exception.ts";
 import { RefusalException } from "../exceptions/refusal.exception.ts";
 import type { IInputBackend } from "../interfaces/backend/i-input-backend.ts";
@@ -102,6 +103,10 @@ export class MacInputBackend implements IInputBackend {
     let outcome: IMacOutcomeJson;
     try {
       outcome = await this.api.dragAsync(MacInputBackend.toTarget(target), from.x, from.y, to.x, to.y, steps, button.value, modifiers.map(t => t.value), stopPath);
+    } catch (error) {
+      if (error instanceof MacScriptEndedException)
+        await this.api.releaseAsync(button.value, modifiers.map(t => t.value)).catch((released: unknown) => this.log.write(Resources.formatDragReleaseFailed(String(released))));
+      throw error;
     } finally {
       signal.removeEventListener("abort", end);
       await Promise.all(stops);

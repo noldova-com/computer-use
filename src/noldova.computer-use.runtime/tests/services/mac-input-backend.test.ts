@@ -24,7 +24,7 @@ import {
   RefusalReasonUnknownException,
   ScrollAmount
 } from "@noldova/computer-use.runtime";
-import { MacStopFolderFailedException } from "@noldova/computer-use.runtime/macos";
+import { MacScriptFailedException, MacScriptTimedOutException, MacStopFolderFailedException } from "@noldova/computer-use.runtime/macos";
 import { ArgumentOutOfRangeException } from "@noldova/context.exceptions";
 
 import { HangGuard } from "./hang-guard.fixture.ts";
@@ -138,6 +138,42 @@ describe("the macOS backend's input", () => {
     });
 
     await assert.rejects(backend.input.dragAsync(TARGET, new DesktopPoint(1, 2), new DesktopPoint(3, 4), PointerButton.Left, [], controller.signal), { name: "AbortError" });
+  });
+
+  it("releases a drag's button and modifiers through a new call when its input process ends during it, and throws that end", async () => {
+    const { channel, backend, written } = MacBackendHarness.start();
+    const ended = new MacScriptTimedOutException("drag", 10_000);
+    channel.answers.setBy("drag", () => {
+      throw ended;
+    });
+
+    await assert.rejects(backend.input.dragAsync(TARGET, new DesktopPoint(1, 2), new DesktopPoint(3, 4), PointerButton.Right, [ModifierKey.Shift, ModifierKey.Alt], HangGuard.signal()), error => error === ended);
+
+    assert.deepEqual(channel.named("release"), [{ button: PointerButton.Right.value, modifiers: [ModifierKey.Shift.value, ModifierKey.Alt.value] }]);
+    assert.deepEqual(written, []);
+  });
+
+  it("logs a release that fails after a drag's input process ends, and still throws that end", async () => {
+    const { channel, backend, written } = MacBackendHarness.start();
+    const ended = new MacScriptTimedOutException("drag", 10_000);
+    channel.answers.setBy("drag", () => {
+      throw ended;
+    });
+    channel.failures.add("release");
+
+    await assert.rejects(backend.input.dragAsync(TARGET, new DesktopPoint(1, 2), new DesktopPoint(3, 4), PointerButton.Left, [], HangGuard.signal()), error => error === ended);
+
+    assert.equal(written.length, 1);
+    assert.match(written[0] ?? "", /^A drag whose input process ended couldn't release its button and modifiers: .*release failed/u);
+  });
+
+  it("sends no release for a drag the input process answers with an error, since the process released it itself", async () => {
+    const { channel, backend } = MacBackendHarness.start();
+    channel.failures.add("drag");
+
+    await assert.rejects(backend.input.dragAsync(TARGET, new DesktopPoint(1, 2), new DesktopPoint(3, 4), PointerButton.Left, [ModifierKey.Shift], HangGuard.signal()), MacScriptFailedException);
+
+    assert.deepEqual(channel.named("release"), []);
   });
 
   it("logs a stop file the system can't write, and leaves the drag to end at its end point", async () => {

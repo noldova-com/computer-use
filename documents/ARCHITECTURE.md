@@ -292,6 +292,8 @@ That doubles a step of a screenshot and a click on Windows, from 140 to 307 ms a
 
 A stop or a timeout during a glide lets it end, 0.2 seconds at most, and nothing more is sent.
 A stop or a timeout during a drag whose button is down reaches it before its next step, within a step of 16 ms on Windows and a step and its window check on macOS: the drag releases the button and the modifiers where the pointer is, never at its end point, and nothing more is sent, so the call fails as `OutcomeUncertain`.
+On macOS a step that throws after the press, such as a check with no screen during a display change, releases them the same way before the call fails.
+A call whose time runs out ends the input process, and macOS keeps a button and modifiers that a process pressed down after it ends, so the backend then sends their release through a new input process, logs a release that fails, and the call fails with the time out.
 The drag is one platform call, so the call's signal reaches it through a flag the platform reads before each step:
 - on Windows a shared 32-bit integer that the runtime sets and the drag's thread reads with an interlocked read;
 - on macOS a file the drag's request names, in a folder of the module's own that only the person can read, which the runtime creates and the input process looks for, since the process reads one request at a time and a drag is one of them.
