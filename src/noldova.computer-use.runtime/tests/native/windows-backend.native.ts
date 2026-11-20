@@ -7,13 +7,14 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { after, afterEach, before, describe, it } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
 
 import { AppIdentity, BorderFrame, ClickCount, type ControlInfo, ControlRole, ControlState, DesktopPoint, KeyName, ModifierKey, PointerButton, RefusalException, RefusalReason, type StackedWindow, WindowImage, type WindowInfo } from "@noldova/computer-use.runtime";
 import { type IWindowsStackedWindowJson, WindowsBackend } from "@noldova/computer-use.runtime/windows";
@@ -55,6 +56,28 @@ const GLIDE_START_INSET = 40;
 const NOTIFICATION_POLL_MS = 250;
 const HELD_READ_LIMIT_MS = 300;
 const HELD_READ_COUNT = 40;
+const LOOKUP_LIBRARIES = ["oleacc.dll", "uiamanager.dll"];
+const AFTER_START = `import { createRequire } from "node:module";
+const [addonFile, wanted, limitMs] = process.argv.slice(1);
+createRequire(addonFile)(addonFile);
+const libraries = JSON.parse(wanted);
+const deadline = Date.now() + Number(limitMs);
+const poll = () => {
+  const loaded = process.report.getReport().sharedObjects.map(t => t.toLowerCase().split("\\\\").pop());
+  const missing = libraries.filter(t => !loaded.includes(t));
+  if (missing.length === 0 || Date.now() > deadline) {
+    console.log(JSON.stringify(missing));
+    process.exit(0);
+  }
+  setTimeout(poll, 20);
+};
+poll();`;
+const READ_AT_START = `import { createRequire } from "node:module";
+const [addonFile, target, limitMs] = process.argv.slice(1);
+const addon = createRequire(addonFile)(addonFile);
+const read = await addon.readControls(JSON.parse(target), null, Number(limitMs));
+console.log(JSON.stringify([read.controls.some(t => t.name === "Save"), read.timedOut]));
+process.exit(0);`;
 
 describe("the Windows backend on the desktop", { skip: process.platform !== "win32" ? "The Windows backend runs on Windows only." : false }, () => {
   const session = new WindowsDesktopSession();
@@ -489,6 +512,20 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     }
 
     assert.deepEqual(answers.filter(answer => answer !== "0 true"), []);
+  });
+
+  it("loads the libraries a window's first lookup needs as UI Automation starts, before any read, so the first read's limit doesn't pay for them", async () => {
+    const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", AFTER_START, WindowsBackend.addonFile, JSON.stringify(LOOKUP_LIBRARIES), String(TIMEOUT_MS)], { timeout: 2 * TIMEOUT_MS });
+
+    assert.deepEqual(JSON.parse(stdout), []);
+  });
+
+  it("answers a read made as the addon loads with the window's controls, without hanging behind UI Automation's start", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", READ_AT_START, WindowsBackend.addonFile, JSON.stringify(target), String(TIMEOUT_MS)], { timeout: 2 * TIMEOUT_MS });
+
+    assert.deepEqual(JSON.parse(stdout), [true, false]);
   });
 
   it("finds the Save button again, finds it at its point but not at the marker's, and a click at its point presses it", async () => {
