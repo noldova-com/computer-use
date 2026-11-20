@@ -30,6 +30,13 @@ describe("AppIdentity", () => {
     assert.equal(AppIdentity.ofWindowsPath("\\\\Server\\Share\\Sample.exe").id, "\\\\server\\share\\sample.exe");
   });
 
+  it("lowers only a Windows path's ASCII capitals, which every Windows case table folds alike, so the system finds the program", () => {
+    assert.equal(AppIdentity.ofWindowsPath("C:\\Users\\İlker\\AppData\\Local\\Notes\\Notes.exe").id, "c:\\users\\İlker\\appdata\\local\\notes\\notes.exe");
+    assert.equal(AppIdentity.ofWindowsPath("C:\\Users\\ᏣᎳᎩ\\Ⴀ\\\uA7AC\\App.exe").id, "c:\\users\\ᏣᎳᎩ\\Ⴀ\\\uA7AC\\app.exe");
+    assert.equal(AppIdentity.ofWindowsPath("C:\\Straẞe\\5\u212AB\\\u{10400}.exe").id, "c:\\straẞe\\5\u212Ab\\\u{10400}.exe");
+    assert.equal(AppIdentity.ofWindowsPath("C:\\ΣΤΟΑ\\Ölçü\\Ǆ.exe").id, "c:\\ΣΤΟΑ\\Ölçü\\Ǆ.exe");
+  });
+
   for (const path of ["", "sample.exe", "C:sample.exe", "\\Sample\\sample.exe", "C:\\Sample\\"])
     it(`refuses the Windows program path "${path}"`, () => {
       assert.throws(() => AppIdentity.ofWindowsPath(path), ProgramPathInvalidException);

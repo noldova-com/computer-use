@@ -28,7 +28,7 @@ export class AppIdentity {
     if (!AppIdentity.isWindowsPath(programPath))
       throw new ProgramPathInvalidException(programPath);
 
-    return new AppIdentity(win32.normalize(programPath).toLowerCase());
+    return new AppIdentity(win32.normalize(programPath).replace(Resources.windowsCapitalPattern, t => t.toLowerCase()));
   }
 
   public static isWindowsPath(programPath: string): boolean {

@@ -696,6 +696,26 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     }
   });
 
+  it("types into and describes an app under a folder whose name holds \"İ\" and a Cherokee capital, which JavaScript lowers and Windows doesn't fold back", async () => {
+    const folder = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "İᏣ-")));
+    const program = path.join(folder, "powershell.exe");
+    fs.copyFileSync(path.join(process.env["SystemRoot"] ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), program);
+    const typing = new WindowsTestWindow("test-window.ps1", {}, program);
+    try {
+      const front = await openSecondAsync(typing);
+
+      assert.equal(front.target.app.id, AppIdentity.ofWindowsPath(program).id);
+      assert.ok(front.target.app.id.includes("İᏣ-"), front.target.app.id);
+      await backend.input.typeTextAsync(front.target, "q", AbortSignal.timeout(TIMEOUT_MS));
+      assert.match(await typing.takeLineAsync("text ", TIMEOUT_MS), /q$/);
+      assert.notEqual(await backend.apps.describeAppAsync(front.target.app, 64, AbortSignal.timeout(TIMEOUT_MS)), null);
+    }
+    finally {
+      await typing.closeAsync(TIMEOUT_MS);
+      fs.rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
+    }
+  });
+
   it("refuses typing and a key press in a WPF password box, sending nothing", async () => {
     const box = new WindowsTestWindow("password-window.ps1");
     try {
