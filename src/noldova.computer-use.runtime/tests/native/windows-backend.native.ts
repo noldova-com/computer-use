@@ -662,12 +662,14 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     const front = await session.frontAsync();
     const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.target.app.id };
 
-    for (const text of ["ab\n", "ab\t"]) {
+    for (const [text, pressed] of [["ab\n", "enter"], ["ab\t", "box left"]] as const) {
       session.window.send("focus box");
       assert.equal(await session.window.takeLineAsync("box focused ", TIMEOUT_MS), "box focused True");
+      session.window.takePending();
       stopSendAfter(5);
 
       assert.throws(() => session.addon.typeText(target, text, FOCUS_MS), { message: "Windows inserted 5 of 6 input events; another thread blocks input." }, JSON.stringify(text));
+      assert.equal(await session.window.takeLineAsync(pressed, TIMEOUT_MS), pressed);
       assert.equal(await heldKeysAsync(), "keys enter False tab False", `The key ${JSON.stringify(text.at(-1))} pressed is still held.`);
     }
     await session.reopenAsync();

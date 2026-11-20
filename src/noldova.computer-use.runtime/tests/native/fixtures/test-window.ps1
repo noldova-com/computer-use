@@ -74,6 +74,7 @@ $box = New-Object System.Windows.Forms.TextBox
 $box.Location = New-Object System.Drawing.Point(24, 24)
 $box.Width = 240
 $box.Add_TextChanged({ Report "text $($box.Text)" })
+$box.Add_LostFocus({ Report "box left" })
 
 $password = New-Object System.Windows.Forms.TextBox
 $password.Location = New-Object System.Drawing.Point(24, 64)
