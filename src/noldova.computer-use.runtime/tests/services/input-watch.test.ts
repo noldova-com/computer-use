@@ -8,6 +8,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { MessageChannel } from "node:worker_threads";
 
 import { PhysicalInputKind } from "@noldova/computer-use.runtime";
 import { AppWindow } from "@noldova/desktop.protocol";
@@ -195,7 +196,7 @@ describe("the watch for the person", () => {
   it("stops control once three heartbeat intervals pass without a beat while a tool sends, and a beat starts the count again", async t => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const harness = await beatingAsync();
-    const { call, release } = await holdInputAsync(harness);
+    const { call, ended, release } = await holdInputAsync(harness);
     const failed = RuntimeHarness.assertFailsAsync(call, ToolFailureCode.OutcomeUncertain, /^The call ended \(Stopped\) after some input may have been sent, so the outcome is uncertain\. Call computer_screenshot before acting again\.$/);
 
     t.mock.timers.tick(deadlineMs - 1);
@@ -203,12 +204,42 @@ describe("the watch for the person", () => {
     t.mock.timers.tick(deadlineMs - 1);
     assert.deepEqual(harness.context.published(statusEvent), [controlling]);
     t.mock.timers.tick(1);
+    await ended;
     release();
 
     await failed;
     await harness.tools.idleAsync();
     assert.equal(harness.monitor.isRunning, false);
     assert.deepEqual(harness.context.published(statusEvent), [controlling, stopped]);
+  });
+
+  it("counts a beat that waited behind a send which held the thread past the deadline, so control goes on", async () => {
+    const shortIntervalMs = 200;
+    const harness = await RuntimeHarness.startAsync(undefined, undefined, null, undefined, undefined, shortIntervalMs);
+    await harness.grantAppAsync(RuntimeHarness.notes);
+    const channel = new MessageChannel();
+    const beaten = Promise.withResolvers<void>();
+    channel.port2.on("message", () => {
+      harness.monitor.beat();
+      beaten.resolve();
+    });
+    const sendAsync = harness.input.typeTextAsync.bind(harness.input);
+    harness.input.typeTextAsync = async (target, chunk, signal) => {
+      harness.monitor.beat();
+      channel.port1.postMessage(null);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)), 0, 0, shortIntervalMs * 5);
+      await sendAsync(target, chunk, signal);
+      await beaten.promise;
+      await new Promise(resolve => setImmediate(resolve));
+    };
+    try {
+      await harness.callAsync("computer_type", typing);
+    } finally {
+      channel.port1.close();
+    }
+
+    assert.deepEqual(harness.context.published(statusEvent), [controlling]);
+    assert.equal(harness.input.sent.length, 1);
   });
 
   it("counts no missed heartbeat between calls", async t => {

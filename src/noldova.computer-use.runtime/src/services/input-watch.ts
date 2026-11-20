@@ -88,6 +88,7 @@ export class InputWatch {
     const deadline = new AbortController();
     this.deadline = deadline;
     void timers.setTimeout(this.monitor.heartbeatIntervalMs * Resources.missedBeatsToStop, undefined, { ref: false, signal: deadline.signal })
+      .then(async () => await timers.setImmediate(undefined, { ref: false, signal: deadline.signal }))
       .then(() => this.onTakeover(), () => undefined);
   }
 

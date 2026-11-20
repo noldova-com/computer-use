@@ -529,6 +529,7 @@ Each platform adds its own signal of the person's input:
 - **Linux on X11, planned and not built yet:** the module would stop control by pointer polling only.
 
 If the monitor stops responding, control stops: the watch arms one deadline of three heartbeat intervals (`missedBeatsToStop`) as it starts and re-arms it on each heartbeat, so a monitor silent that long stops control, through the base's `stopAll` as the person's input does.
+A deadline that ends stops control only after one more turn of the event loop, which delivers the heartbeats waiting for it: on Windows the input calls are synchronous, so a long key or type batch can hold the thread past the deadline while the monitor's thread keeps beating, and the timer would otherwise run before the beats queued behind the batch; a call that ends within that turn ends unstopped.
 A monitor that didn't stop fails the next watch's start, which reports it.
 Each monitor run has its own number, so a late post from an earlier run reaches no listener.
 Stopping cancels the action in progress between steps and releases held buttons and keys; the base withdraws pending permission requests and fails each later call as `Stopped` until the person resumes.
