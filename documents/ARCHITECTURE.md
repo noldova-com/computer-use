@@ -524,6 +524,7 @@ Each platform adds its own signal of the person's input:
   So another process's pointer events posted at the HID tap stop control too, unlike other software's synthetic input on Windows.
   The system's idle time can't tell the person from the module either: on macOS 15 every key and move posted at the HID tap reset it, and at the session tap a third of them still did, 8 of 24 in each of two runs, while 20 seconds with nothing posted left it untouched.
   The watch lives only in the input process, so a poll that finds no watch reports the person's input: when the process ends during a watch, after a crash or a line it couldn't read, the next call starts a new process that holds none, and control stops at that poll rather than run unwatched to the end of the watch.
+  An input call made while the watch runs is marked as watched, and the process refuses a watched call when it holds no watch, so a call between the restart and that poll sends nothing either.
 - **Linux on X11, planned and not built yet:** the module would stop control by pointer polling only.
 
 If the monitor stops responding, control stops: the watch arms one deadline of three heartbeat intervals (`missedBeatsToStop`) as it starts and re-arms it on each heartbeat, so a monitor silent that long stops control, through the base's `stopAll` as the person's input does.
