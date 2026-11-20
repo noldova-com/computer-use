@@ -19,6 +19,7 @@ Add-Type -Namespace NoldovaTestWindow -Name User32 -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr window);
 [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
 [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
+[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
 [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 [DllImport("user32.dll")] public static extern IntPtr SetWindowLongPtr(IntPtr window, int index, IntPtr value);
 [DllImport("user32.dll")] public static extern IntPtr SetParent(IntPtr child, IntPtr parent);
@@ -128,6 +129,9 @@ function Read-Command {
       Read-Command
     } elseif ($line -eq "iconic") {
       Report "iconic $([NoldovaTestWindow.User32]::IsIconic($form.Handle))"
+      Read-Command
+    } elseif ($line -eq "keys") {
+      Report "keys enter $(([NoldovaTestWindow.User32]::GetAsyncKeyState(0x0D) -band 0x8000) -ne 0) tab $(([NoldovaTestWindow.User32]::GetAsyncKeyState(0x09) -band 0x8000) -ne 0)"
       Read-Command
     } elseif ($line -eq "focus box") {
       Report "box focused $($box.Focus())"

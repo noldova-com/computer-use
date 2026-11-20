@@ -90,6 +90,7 @@
 #define PHYSICAL_POINTER 0
 #define PHYSICAL_KEYBOARD 1
 #define KEY_PROCESS_NONE (-1)
+#define SEND_LIMIT_NONE (-1)
 #define KEY_PROCESS_UNKNOWN 0
 
 #define MAX_CONTROL_TEXT 402
@@ -226,6 +227,8 @@ typedef struct {
 
 static volatile LONG physical_count = 0;
 static volatile LONG is_person_input_before_next_send = 0;
+static volatile LONG partial_next_send = SEND_LIMIT_NONE;
+static LONG send_limit = SEND_LIMIT_NONE;
 static volatile LONG physical_pending[2] = { 0, 0 };
 static volatile LONG key_process = KEY_PROCESS_NONE;
 static volatile LONG heartbeat_pending = 0;
@@ -627,7 +630,8 @@ static BOOL insert_batch(input_batch *batch, const modifier_list *modifiers, DWO
     strcpy_s(error, MAX_ERROR_TEXT, "The input events outgrew their batch, so none were sent.");
     return FALSE;
   }
-  sent = SendInput(batch->count, batch->items, sizeof(INPUT));
+  sent = SendInput(send_limit != SEND_LIMIT_NONE && (UINT)send_limit < batch->count ? (UINT)send_limit : batch->count, batch->items, sizeof(INPUT));
+  send_limit = SEND_LIMIT_NONE;
   if (sent != batch->count) {
     UINT expected = batch->count;
     batch->count = 0;
@@ -649,6 +653,7 @@ static const char *check_after_send(const target_window *target, LONG physical_b
 }
 
 static LONG read_physical_count_at_call(void) {
+  send_limit = InterlockedExchange(&partial_next_send, SEND_LIMIT_NONE);
   return read_physical_count() - InterlockedExchange(&is_person_input_before_next_send, 0);
 }
 
@@ -656,6 +661,16 @@ static napi_value person_input_before_next_send(napi_env env, napi_callback_info
   (void)env;
   (void)info;
   InterlockedExchange(&is_person_input_before_next_send, 1);
+  return NULL;
+}
+
+static napi_value partial_next_send_export(napi_env env, napi_callback_info info) {
+  napi_value argument;
+  uint32_t count = 0;
+  if (read_arguments(env, info, 1, &argument) == NULL)
+    return NULL;
+  CHECK(env, napi_get_value_uint32(env, argument, &count));
+  InterlockedExchange(&partial_next_send, (LONG)count);
   return NULL;
 }
 
@@ -1248,6 +1263,7 @@ static napi_value type_text(napi_env env, napi_callback_info info) {
   char error[MAX_ERROR_TEXT];
   const char *reason;
   BOOL is_sent = FALSE;
+  WORD held = 0;
   napi_value outcome;
   LONG physical_before = read_physical_count_at_call();
   DPI_AWARENESS_CONTEXT previous;
@@ -1273,13 +1289,14 @@ static napi_value type_text(napi_env env, napi_callback_info info) {
       if (key != 0) {
         add_key(&batch, key, FALSE);
         add_key(&batch, key, TRUE);
+        held = key;
         index += units_of_key(text, index, end) - 1;
       } else {
         add_unit(&batch, text[index], FALSE);
         add_unit(&batch, text[index], TRUE);
       }
     }
-    reason = send_batch(&target, &batch, physical_before, &NO_MODIFIERS, 0, 0, nowhere, error, &is_sent);
+    reason = send_batch(&target, &batch, physical_before, &NO_MODIFIERS, 0, held, nowhere, error, &is_sent);
     close_batch(&batch);
     if (error[0] != '\0')
       napi_throw_error(env, ERROR_CODE, error);
@@ -3511,7 +3528,8 @@ NAPI_MODULE_INIT() {
     { "readControls", NULL, read_controls, NULL, NULL, NULL, napi_enumerable, NULL },
     { "findControl", NULL, find_control, NULL, NULL, NULL, napi_enumerable, NULL },
     { "hitsControl", NULL, hits_control, NULL, NULL, NULL, napi_enumerable, NULL },
-    { "personInputBeforeNextSend", NULL, person_input_before_next_send, NULL, NULL, NULL, napi_enumerable, NULL }
+    { "personInputBeforeNextSend", NULL, person_input_before_next_send, NULL, NULL, NULL, napi_enumerable, NULL },
+    { "partialNextSend", NULL, partial_next_send_export, NULL, NULL, NULL, napi_enumerable, NULL }
   };
   if (napi_define_properties(env, exports, sizeof properties / sizeof properties[0], properties) != napi_ok
       || napi_add_env_cleanup_hook(env, end_monitor_on_exit, NULL) != napi_ok
