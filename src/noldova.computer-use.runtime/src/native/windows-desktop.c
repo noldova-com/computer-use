@@ -3121,11 +3121,23 @@ static void run_focus(control_request *request) {
   IUIAutomationElement_Release(focused);
 }
 
+static void warm_up_automation(void) {
+  IUIAutomationElement *desktop = NULL;
+  IUIAutomationElement *cached = NULL;
+  if (SUCCEEDED(IUIAutomation2_ElementFromHandle(automation, GetDesktopWindow(), &desktop)) && desktop != NULL
+      && SUCCEEDED(IUIAutomationElement_BuildUpdatedCache(desktop, read_cache, &cached)) && cached != NULL)
+    IUIAutomationElement_Release(cached);
+  if (desktop != NULL)
+    IUIAutomationElement_Release(desktop);
+}
+
 static DWORD WINAPI run_controls(LPVOID parameter) {
   BOOL is_started;
   (void)parameter;
   enter_physical_pixels();
   is_started = start_automation();
+  if (is_started)
+    warm_up_automation();
   AcquireSRWLockExclusive(&control_lock);
   control_ready = TRUE;
   WakeAllConditionVariable(&control_changed);
