@@ -79,7 +79,8 @@ test.describe("computer use in a real app, with the operating system's grants", 
       if (process.platform === "win32") {
         const { readFileSync, existsSync } = await import("node:fs");
         const { tmpdir } = await import("node:os");
-        const file = `${tmpdir()}\noldova-read-diag.log`;
+        const { join } = await import("node:path");
+        const file = join(tmpdir(), "noldova-read-diag.log");
         const text = existsSync(file) ? readFileSync(file, "utf8") : `no ${file}`;
         console.log(`READ-DIAG #71 ${AgentDouble.describe(read).slice(0, 400)}
 ${text}`);
