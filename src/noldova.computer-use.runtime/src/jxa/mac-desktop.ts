@@ -1458,7 +1458,7 @@ const METHODS: { readonly [name: string]: Method } = {
     watch = { expected: [readPointer()], countedAtStart: readCounters(), ownCount: 0, fencedCount: 0 };
     return null;
   },
-  pollWatch: (): IMacWatchPollJson => ({ hasMoved: hasPersonMoved() }),
+  pollWatch: (): IMacWatchPollJson => ({ hasMoved: watch === null || hasPersonMoved() }),
   stopWatch: () => {
     watch = null;
     return null;

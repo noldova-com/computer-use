@@ -1243,6 +1243,21 @@ describe("the macOS backend on the desktop", { skip: process.platform !== "darwi
     assert.deepEqual((await window.takeUntilSentinelAsync(TIMEOUT_MS)).filter(t => t.startsWith("click ")), []);
   });
 
+  it("reports the person's input at the first poll after the input process ended during a watch, since the new process holds no watch", async () => {
+    const input = new MacScriptProcess(starter, "/usr/bin/osascript", ["-l", "JavaScript", MacBackend.scriptFile], TIMEOUT_MS);
+
+    try {
+      await input.callAsync("startWatch", {});
+      const watched = await input.callAsync("pollWatch", {});
+      await input.closeAsync();
+      const restarted = await input.callAsync("pollWatch", {});
+
+      assert.deepEqual([watched, restarted], [{ hasMoved: false }, { hasMoved: true }]);
+    } finally {
+      await input.closeAsync();
+    }
+  });
+
   it("watches the pointer, with heartbeats and no report of the module's own input, a glide's, a drag's, a click's and a scroll's among it", async () => {
     const front = await frontAsync();
     const point = await findMarkerAsync(front);
