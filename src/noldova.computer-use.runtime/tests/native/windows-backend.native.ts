@@ -55,7 +55,6 @@ const GLIDE_START_INSET = 40;
 const NOTIFICATION_POLL_MS = 250;
 const HELD_READ_LIMIT_MS = 300;
 const HELD_READ_COUNT = 40;
-const HELD_READ_SHORTEST_MS = 100;
 
 describe("the Windows backend on the desktop", { skip: process.platform !== "win32" ? "The Windows backend runs on Windows only." : false }, () => {
   const session = new WindowsDesktopSession();
@@ -482,7 +481,7 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     const answers: string[] = [];
     try {
       for (let index = 0; index < HELD_READ_COUNT; index++)
-        answers.push(await session.addon.readControls(target, null, HELD_READ_SHORTEST_MS + index)
+        answers.push(await session.addon.readControls(target, null, HELD_READ_LIMIT_MS + index)
           .then(read => `${read.controls.length} ${read.timedOut}`, (error: unknown) => `read ${index}: ${String(error)}`));
     } finally {
       session.window.send("release");
