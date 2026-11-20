@@ -76,6 +76,15 @@ test.describe("computer use in a real app, with the operating system's grants", 
 
       await window.bringToFrontAsync();
       const read = await agent.callAsync("computer_read_window");
+      if (process.platform === "win32") {
+        const { readFileSync, existsSync } = await import("node:fs");
+        const { tmpdir } = await import("node:os");
+        const file = `${tmpdir()}\noldova-read-diag.log`;
+        const text = existsSync(file) ? readFileSync(file, "utf8") : `no ${file}`;
+        console.log(`READ-DIAG #71 ${AgentDouble.describe(read).slice(0, 400)}
+${text}`);
+        await test.info().attach("read-diag", { body: text, contentType: "text/plain" });
+      }
       expectSucceeded(read);
       const control = AgentDouble.textsOf(read).map(t => SAVE_CONTROL.exec(t)?.[1]).find(t => t !== undefined);
       expect(control, `computer_read_window lists no Save button: ${AgentDouble.describe(read)}`).toBeDefined();

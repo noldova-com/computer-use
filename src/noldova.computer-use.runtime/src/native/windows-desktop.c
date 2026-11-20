@@ -2852,6 +2852,7 @@ static void add_children(control_request *request, control_references *reference
   }
 }
 
+static void diag_mark(void);
 static BOOL read_children(control_request *request, control_references *references, const control_visit *visit, int *visit_count) {
   IUIAutomationElementArray *children = NULL;
   IUIAutomationElementArray *others = NULL;
@@ -2861,15 +2862,19 @@ static BOOL read_children(control_request *request, control_references *referenc
     request->is_timed_out = TRUE;
     return FALSE;
   }
+  diag_mark();
   if (FAILED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->own_children, read_cache, &children)))
     children = NULL;
+  diag_mark();
   add_children(request, references, visit, visit_count, children, TRUE, &taken, &is_going);
+  diag_mark();
   if (is_going && !limit_to_time_left(request->deadline)) {
     request->is_timed_out = TRUE;
     is_going = FALSE;
   }
   if (is_going && SUCCEEDED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, &others)))
-    add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
+    diag_mark(), add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
+  diag_mark();
   if (others != NULL)
     IUIAutomationElementArray_Release(others);
   if (children != NULL)
@@ -2945,7 +2950,47 @@ static void release_process_conditions(control_request *request) {
     IUIAutomationCondition_Release(request->own_children);
 }
 
+static LARGE_INTEGER diag_marks[64];
+static int diag_count = 0;
+static void diag_mark(void) { if (diag_count < 64) QueryPerformanceCounter(&diag_marks[diag_count++]); }
+static void diag_write(const char *text) {
+  char path[MAX_PATH];
+  FILE *file = NULL;
+  DWORD length = GetTempPathA(MAX_PATH, path);
+  if (length == 0 || length >= MAX_PATH - 32 || strcat_s(path, MAX_PATH, "noldova-read-diag.log") != 0 || fopen_s(&file, path, "a") != 0 || file == NULL)
+    return;
+  fputs(text, file);
+  fclose(file);
+}
+static long long diag_left = 0;
+static void diag_report(control_request *request, int popups, HRESULT found) {
+  char line[2048];
+  LARGE_INTEGER frequency;
+  int index;
+  size_t used;
+  QueryPerformanceFrequency(&frequency);
+  used = (size_t)sprintf_s(line, sizeof line, "read tick=%llu limit=%d left_at_start=%lld popups=%d hr=0x%08lX count=%d timed_out=%d error=\"%s\" steps_ms=", GetTickCount64(), (int)request->limit_ms, diag_left, popups, (unsigned long)found, (int)request->count, (int)request->is_timed_out, request->error);
+  for (index = 1; index < diag_count && used < sizeof line - 32; index++)
+    used += (size_t)sprintf_s(line + used, sizeof line - used, "%lld,", (diag_marks[index].QuadPart - diag_marks[index - 1].QuadPart) * 1000 / frequency.QuadPart);
+  sprintf_s(line + used, sizeof line - used, "\n");
+  diag_write(line);
+}
+
+static void run_read_measured(control_request *request);
+static int diag_popups = 0;
+static HRESULT diag_found = S_OK;
 static void run_read(control_request *request) {
+  diag_count = 0;
+  diag_popups = -1;
+  diag_found = S_OK;
+  diag_left = (long long)(request->deadline - GetTickCount64());
+  diag_mark();
+  run_read_measured(request);
+  diag_mark();
+  diag_report(request, diag_popups, diag_found);
+}
+
+static void run_read_measured(control_request *request) {
   control_references *references = request->has_handle ? &under_references : &whole_references;
   IUIAutomationElement *start = NULL;
   int visit_count = 0;
@@ -2971,11 +3016,15 @@ static void run_read(control_request *request) {
       return;
     }
     popup_count = list_popups(&request->target, popups);
+    diag_popups = popup_count;
+    diag_mark();
     if (!limit_to_time_left(request->deadline)) {
       request->is_timed_out = TRUE;
       return;
     }
     found = IUIAutomation2_ElementFromHandle(automation, request->target.window, &start);
+    diag_found = found;
+    diag_mark();
     if (FAILED(found) || start == NULL) {
       if (found == UIA_E_TIMEOUT || found == HRESULT_FROM_WIN32(ERROR_TIMEOUT) || is_past(request->deadline))
         request->is_timed_out = TRUE;
@@ -3012,12 +3061,13 @@ static void run_read(control_request *request) {
     release_process_conditions(request);
     return;
   }
+  diag_mark();
   add_visit(&visit_count, start, -1, 0, &area);
   IUIAutomationElement_Release(start);
   for (index = popup_count - 1; index >= 0; index--)
     add_popup(request, references, popups[index], &visit_count);
   for (index = 0; index < visit_count; index++)
-    if (!read_children(request, references, &control_visits[index], &visit_count))
+    if (diag_mark(), !read_children(request, references, &control_visits[index], &visit_count))
       break;
   for (index = 0; index < visit_count; index++)
     IUIAutomationElement_Release(control_visits[index].element);
@@ -3179,6 +3229,8 @@ static BOOL start_controls(void) {
 static void execute_control(napi_env env, void *data) {
   control_request *request = (control_request *)data;
   ULONGLONG start_deadline;
+  ULONGLONG entered = GetTickCount64();
+  char diag_line[256];
   (void)env;
   AcquireSRWLockExclusive(&control_lock);
   if (!start_controls()) {
@@ -3202,6 +3254,8 @@ static void execute_control(napi_env env, void *data) {
       strcpy_s(request->failure, MAX_ERROR_TEXT, "The control thread is still busy with an earlier request that doesn't answer.");
       return;
     }
+  sprintf_s(diag_line, sizeof diag_line, "execute kind=%d tick=%llu waited_ms=%llu\n", (int)request->kind, GetTickCount64(), GetTickCount64() - entered);
+  diag_write(diag_line);
   control_busy = TRUE;
   InterlockedIncrement(&request->references);
   control_pending = request;
