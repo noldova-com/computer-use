@@ -17,7 +17,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { JsonObject } from "@noldova/computer-use.protocol";
 import { AppIdentity, BorderFrame, ClickCount, type ControlInfo, ControlRole, ControlState, DesktopPoint, DesktopRect, InputTarget, KeyName, ModifierKey, PointerButton, RefusalException, RefusalReason, RuntimePart, ScrollAmount, type StackedWindow, type WindowImage, type WindowInfo, type WindowStack } from "@noldova/computer-use.runtime";
 import { PermissionOption, ToolContentKind, ToolFailureException, type ToolResult } from "@noldova/desktop.runtime";
-import { MacBackend, MacScriptFailedException, MacScriptProcess } from "@noldova/computer-use.runtime/macos";
+import { MacBackend, MacCodeSignProgram, MacScreenCaptureProgram, MacScriptFailedException, MacScriptProcess, MacScriptTimedOutException } from "@noldova/computer-use.runtime/macos";
 
 import { ProgramStarterDouble } from "../doubles/program-starter-double.fixture.ts";
 import { RecordingPermissionCenter } from "../doubles/recording-permission-center.fixture.ts";
@@ -52,6 +52,11 @@ const FRONT_PROCESS = "ObjC.import(\"AppKit\"); String($.NSWorkspace.sharedWorks
 const FRONT_POLL_MS = 100;
 const SECOND_BUNDLE = "com.noldova.computer-use.NativeTestWindow.Second";
 const PERSON_INPUT_BEFORE_SEND = "--person-input-before-send";
+const FAIL_DRAG_STEP = "--fail-drag-step";
+const HOLD_DRAG_STEP = "--hold-drag-step";
+const HELD_DRAG_TIMEOUT_MS = 3_000;
+const BUTTON_AND_SHIFT = "ObjC.import(\"CoreGraphics\"); String($.CGEventSourceButtonState(0, 0)) + \" \" + String(($.CGEventSourceFlagsState(0) & 0x20000) !== 0)";
+const RELEASE_BUTTON_AND_SHIFT = "ObjC.import(\"CoreGraphics\"); const at = $.CGEventGetLocation($.CGEventCreate(null)); $.CGEventPost(0, $.CGEventCreateMouseEvent(null, 2, at, 0)); $.CGEventPost(0, $.CGEventCreateKeyboardEvent(null, 56, false));";
 
 class ReadRow {
   public readonly handle: string;
@@ -157,6 +162,15 @@ function isFill(red: number, green: number, blue: number): boolean {
 
 function isLime(red: number, green: number, blue: number): boolean {
   return red < 180 && green > 200 && blue < 100;
+}
+
+function readButtonAndShift(): string {
+  return execFileSync("/usr/bin/osascript", ["-l", "JavaScript", "-e", BUTTON_AND_SHIFT], { timeout: TIMEOUT_MS }).toString().trim();
+}
+
+function releaseLeftButtonAndShift(): void {
+  if (readButtonAndShift() !== "false false")
+    execFileSync("/usr/bin/osascript", ["-l", "JavaScript", "-e", RELEASE_BUTTON_AND_SHIFT], { timeout: TIMEOUT_MS });
 }
 
 function isInside(frame: DesktopRect, point: DesktopPoint): boolean {
@@ -715,6 +729,56 @@ describe("the macOS backend on the desktop", { skip: process.platform !== "darwi
       `The drag moved ${dx}, ${dy}, with the pointer at ${pointer.x}, ${pointer.y} from ${from.x}, ${from.y}.`
     );
     assert.equal(execFileSync("/usr/bin/osascript", ["-l", "JavaScript", "-e", LEFT_BUTTON], { timeout: TIMEOUT_MS }).toString().trim(), "false");
+  });
+
+  it("releases a drag's button and modifiers when a step's check throws after the press", async () => {
+    const front = await frontAsync();
+    const from = await findMarkerAsync(front);
+    const to = new DesktopPoint(front.frame.x + GLIDE_START_INSET, front.frame.y + front.frame.height - GLIDE_START_INSET);
+    await backend.input.movePointerAsync(front.target, from, AbortSignal.timeout(TIMEOUT_MS));
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "noldova-computer-use-stop-"));
+    const input = new MacScriptProcess(starter, "/usr/bin/osascript", ["-l", "JavaScript", MacBackend.scriptFile, FAIL_DRAG_STEP], TIMEOUT_MS);
+    const target = { windowId: front.target.windowId, processId: front.target.processId, bundleId: front.target.app.id };
+    let held = "";
+    try {
+      await assert.rejects(
+        input.callAsync("drag", { target, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, steps: GlideRecording.slowSteps(from, to), button: "Left", modifiers: ["Shift"], stopPath: path.join(folder, "stop") }),
+        (error: unknown) => error instanceof MacScriptFailedException && /step check failed/u.test(error.message)
+      );
+      held = readButtonAndShift();
+    } finally {
+      await input.closeAsync();
+      fs.rmSync(folder, { recursive: true, force: true });
+      releaseLeftButtonAndShift();
+    }
+
+    assert.equal(held, "false false", "The button and Shift, as down and held, after the drag's step check threw.");
+    await window.takeUntilSentinelAsync(TIMEOUT_MS);
+  });
+
+  it("releases a drag's button and modifiers through a new input process when the call's time runs out after the press", async () => {
+    const front = await frontAsync();
+    const from = await findMarkerAsync(front);
+    const to = new DesktopPoint(front.frame.x + GLIDE_START_INSET, front.frame.y + front.frame.height - GLIDE_START_INSET);
+    await backend.input.movePointerAsync(front.target, from, AbortSignal.timeout(TIMEOUT_MS));
+    const channel = new MacScriptProcess(starter, "/usr/bin/osascript", ["-l", "JavaScript", MacBackend.scriptFile, HOLD_DRAG_STEP], HELD_DRAG_TIMEOUT_MS);
+    const capturer = new MacScreenCaptureProgram(starter, "/usr/sbin/screencapture", [], TIMEOUT_MS, path.join(os.tmpdir(), "noldova-computer-use-captures"));
+    const signatures = new MacCodeSignProgram(starter, "/usr/bin/codesign", [], TIMEOUT_MS);
+    const held = new MacBackend(channel, capturer, signatures, MacBackend.hostPathOf(process.execPath), path.join(os.tmpdir(), "noldova-computer-use-stops"), starter.log);
+    let state = "";
+    try {
+      await assert.rejects(
+        held.input.dragAsync(front.target, from, to, PointerButton.Left, [ModifierKey.Shift], AbortSignal.timeout(TIMEOUT_MS)),
+        MacScriptTimedOutException
+      );
+      state = readButtonAndShift();
+    } finally {
+      await channel.closeAsync();
+      releaseLeftButtonAndShift();
+    }
+
+    assert.equal(state, "false false", "The button and Shift, as down and held, after the drag's input process was ended.");
+    await window.takeUntilSentinelAsync(TIMEOUT_MS);
   });
 
   it("answers a drag whose stop file is there before its press as stopped with nothing sent, and refuses a drag with no stop file's path", async () => {

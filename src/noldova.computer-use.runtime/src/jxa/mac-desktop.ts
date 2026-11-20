@@ -185,6 +185,10 @@ class Resources {
   public static readonly requestNotObject: string = "The request isn't an object.";
   public static readonly requestUnnamed: string = "The request names no number id or no method.";
   public static readonly personInputBeforeSendArgument: string = "--person-input-before-send";
+  public static readonly failDragStepArgument: string = "--fail-drag-step";
+  public static readonly dragStepFailed: string = "The drag's step check failed, as the script's arguments asked.";
+  public static readonly holdDragStepArgument: string = "--hold-drag-step";
+  public static readonly heldDragStepMs: number = 60_000;
   public static readonly parametersField: string = "parameters";
   public static readonly targetField: string = "target";
   public static readonly watchedField: string = "watched";
@@ -437,6 +441,8 @@ let shownBorder = "";
 let watch: IWatch | null = null;
 
 let isPersonInputBeforeSend = false;
+let isDragStepFailing = false;
+let isDragStepHeld = false;
 
 function sleep(ms: number): void {
   $.NSThread.sleepForTimeInterval(ms / Resources.msPerSecond);
@@ -729,6 +735,10 @@ function glide(target: ISendTarget, points: readonly IPoint[], steps: readonly I
       sleep(step.atMs - now);
     if (isStopSet(stopPath))
       return { reason: null, at, isStopped: true };
+    if (isDragStepFailing && button !== null)
+      throw new Error(Resources.dragStepFailed);
+    if (isDragStepHeld && button !== null)
+      sleep(Resources.heldDragStepMs);
     const reason = checkTarget(target, points, false);
     if (reason !== null)
       return { reason, at, isStopped: false };
@@ -1520,25 +1530,40 @@ const METHODS: { readonly [name: string]: Method } = {
       const flags = flagsOf(modifiers);
       moveTo(from, null, flags);
       pressModifiers(modifiers, true);
-      if (isStopSet(stopPath)) {
+      let isDown = false;
+      let releaseAt: IPoint | null = null;
+      try {
+        if (isStopSet(stopPath)) {
+          stopped = { status: Resources.stoppedStatus, inputSent: true };
+          return null;
+        }
+        isDown = true;
+        postMouse(button.down, from, button, flags, 1);
+        const glided = glide(target, [to], steps, button, flags, stopPath);
+        if (glided.isStopped)
+          stopped = { status: Resources.stoppedStatus, inputSent: true };
+        const isEnded = glided.reason === null && !glided.isStopped;
+        if (isEnded)
+          moveTo(to, button, flags);
+        else
+          sleep(Resources.postGapMs);
+        releaseAt = isEnded ? to : glided.at ?? from;
+        return glided.reason;
+      } finally {
+        if (isDown)
+          postMouse(button.up, releaseAt ?? readPointer(), button, flags, 1);
         pressModifiers(modifiers, false);
-        stopped = { status: Resources.stoppedStatus, inputSent: true };
-        return null;
       }
-      postMouse(button.down, from, button, flags, 1);
-      const glided = glide(target, [to], steps, button, flags, stopPath);
-      if (glided.isStopped)
-        stopped = { status: Resources.stoppedStatus, inputSent: true };
-      const isEnded = glided.reason === null && !glided.isStopped;
-      if (isEnded)
-        moveTo(to, button, flags);
-      else
-        sleep(Resources.postGapMs);
-      postMouse(button.up, isEnded ? to : glided.at ?? from, button, flags, 1);
-      pressModifiers(modifiers, false);
-      return glided.reason;
     });
     return stopped ?? outcome;
+  },
+  release: fields => {
+    const button = readButton(readTextField(fields, Resources.buttonField));
+    const modifiers = readModifiers(readTextListField(fields, Resources.modifiersField));
+    const flags = flagsOf(modifiers);
+    postMouse(button.up, readPointer(), button, flags, 1);
+    pressModifiers(modifiers, false);
+    return null;
   },
   scroll: fields => {
     const target = readTargetField(fields);
@@ -1631,6 +1656,8 @@ function write(output: IJxaFileHandle, value: IAnswer): void {
 
 function run(argv: readonly string[]): string {
   isPersonInputBeforeSend = argv.includes(Resources.personInputBeforeSendArgument);
+  isDragStepFailing = argv.includes(Resources.failDragStepArgument);
+  isDragStepHeld = argv.includes(Resources.holdDragStepArgument);
   $.NSApplication.sharedApplication.setActivationPolicy(Resources.prohibitedPolicy);
   const input = $.NSFileHandle.fileHandleWithStandardInput;
   const output = $.NSFileHandle.fileHandleWithStandardOutput;

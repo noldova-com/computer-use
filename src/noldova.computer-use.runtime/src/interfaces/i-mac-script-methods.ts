@@ -24,6 +24,7 @@ export interface IMacScriptMethods {
   readonly movePointer: string;
   readonly click: string;
   readonly drag: string;
+  readonly release: string;
   readonly scroll: string;
   readonly typeText: string;
   readonly pressKey: string;

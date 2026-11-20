@@ -102,6 +102,10 @@ export class MacDesktopApi {
     return await this.readAsync(Resources.macScriptMethods.drag, { target, fromX, fromY, toX, toY, steps, button, modifiers, stopPath, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
+  public async releaseAsync(button: string, modifiers: readonly string[]): Promise<void> {
+    await this.channel.callAsync(Resources.macScriptMethods.release, { button, modifiers });
+  }
+
   public async scrollAsync(target: IMacTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[]): Promise<IMacOutcomeJson> {
     return await this.readAsync(Resources.macScriptMethods.scroll, { target, x, y, deltaX, deltaY, modifiers, watched: this.isWatching }, MacAnswers.isOutcome);
   }
