@@ -473,6 +473,26 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     assert.equal(tree.isTimedOut, false);
   });
 
+  it("answers a read under one of the test window's controls while its thread is held as timed out, not as the control being gone", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const tree = await session.addon.readControls(target, null, TIMEOUT_MS);
+    const save = tree.controls.find(t => t.name === "Save");
+    assert.ok(save !== undefined, `The read lists ${tree.controls.map(t => t.name).join(", ")}, timed out ${tree.timedOut}.`);
+    session.window.send("hold");
+    await session.window.takeLineAsync("held", TIMEOUT_MS);
+    let answer: string;
+    try {
+      answer = await session.addon.readControls(target, save.handle, HELD_READ_LIMIT_MS)
+        .then(read => `${read.controls.length} ${read.timedOut}`, (error: unknown) => String(error));
+    } finally {
+      session.window.send("release");
+      await session.window.takeLineAsync("released", TIMEOUT_MS);
+    }
+
+    assert.equal(answer, "0 true");
+  });
+
   it("ends a read of the test window while its thread is held at the read's limit, leaving no UI Automation call running into the next request", async () => {
     const front = await session.frontAsync();
     const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
