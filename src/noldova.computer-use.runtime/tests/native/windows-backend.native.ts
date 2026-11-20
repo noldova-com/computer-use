@@ -54,6 +54,8 @@ const GLIDE_START_INSET = 40;
 
 const NOTIFICATION_POLL_MS = 250;
 const HELD_READ_LIMIT_MS = 300;
+const HELD_READ_COUNT = 40;
+const HELD_READ_SHORTEST_MS = 100;
 
 describe("the Windows backend on the desktop", { skip: process.platform !== "win32" ? "The Windows backend runs on Windows only." : false }, () => {
   const session = new WindowsDesktopSession();
@@ -470,6 +472,24 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
         await session.window.takeLineAsync("released", TIMEOUT_MS);
       }
     }
+  });
+
+  it("answers each of many reads of the test window while its thread is held as timed out, even when UI Automation's time limit ends before the read's clock does", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    session.window.send("hold");
+    await session.window.takeLineAsync("held", TIMEOUT_MS);
+    const answers: string[] = [];
+    try {
+      for (let index = 0; index < HELD_READ_COUNT; index++)
+        answers.push(await session.addon.readControls(target, null, HELD_READ_SHORTEST_MS + index)
+          .then(read => `${read.controls.length} ${read.timedOut}`, (error: unknown) => `read ${index}: ${String(error)}`));
+    } finally {
+      session.window.send("release");
+      await session.window.takeLineAsync("released", TIMEOUT_MS);
+    }
+
+    assert.deepEqual(answers.filter(answer => answer !== "0 true"), []);
   });
 
   it("finds the Save button again, finds it at its point but not at the marker's, and a click at its point presses it", async () => {

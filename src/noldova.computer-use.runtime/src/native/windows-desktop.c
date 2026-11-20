@@ -2964,6 +2964,7 @@ static void run_read(control_request *request) {
     IUIAutomationElement_AddRef(start);
     free_references(&under_references);
   } else {
+    HRESULT found;
     if (GetWindowThreadProcessId(request->target.window, &process_id) == 0 || process_id != request->target.process_id
         || !read_shown_frame(request->target.window, &area)) {
       strcpy_s(request->error, MAX_ERROR_TEXT, "The window isn't the target's.");
@@ -2974,8 +2975,9 @@ static void run_read(control_request *request) {
       request->is_timed_out = TRUE;
       return;
     }
-    if (FAILED(IUIAutomation2_ElementFromHandle(automation, request->target.window, &start)) || start == NULL) {
-      if (is_past(request->deadline))
+    found = IUIAutomation2_ElementFromHandle(automation, request->target.window, &start);
+    if (FAILED(found) || start == NULL) {
+      if (found == UIA_E_TIMEOUT || is_past(request->deadline))
         request->is_timed_out = TRUE;
       else
         strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't find the window.");
