@@ -230,7 +230,6 @@ describe("the watch for the person", () => {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)), 0, 0, shortIntervalMs * 5);
       await sendAsync(target, chunk, signal);
       await beaten.promise;
-      await new Promise(resolve => setImmediate(resolve));
     };
     try {
       await harness.callAsync("computer_type", typing);
