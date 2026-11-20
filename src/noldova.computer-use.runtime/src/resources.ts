@@ -40,6 +40,7 @@ export class Resources {
   public static readonly maxScrollNotches: number = 50;
   public static readonly keyMaxRepeat: number = 100;
   public static readonly minWindowsRootLength: number = 3;
+  public static readonly windowsCapitalPattern: RegExp = /[A-Z]/g;
   public static readonly bundleIdForbiddenPattern: RegExp = /[\s/\\]/u;
   public static readonly baseModifierName: string = "mod";
   public static readonly controlModifierAliases: readonly string[] = ["control", "ctrl"];

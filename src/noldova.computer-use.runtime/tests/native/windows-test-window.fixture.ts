@@ -119,8 +119,10 @@ export class WindowsTestWindow {
 
     this.process.stdin.end("close\n");
     const code = await this.exitAsync(timeoutMs);
-    if (code === null)
+    if (code === null) {
       this.process.kill();
+      await this.exitAsync(timeoutMs);
+    }
 
     return code;
   }

@@ -28,7 +28,7 @@ export class AppIdentity {
     if (!AppIdentity.isWindowsPath(programPath))
       throw new ProgramPathInvalidException(programPath);
 
-    return new AppIdentity(Array.from(win32.normalize(programPath), t => AppIdentity.toWindowsLowerCase(t)).join(""));
+    return new AppIdentity(win32.normalize(programPath).replace(Resources.windowsCapitalPattern, t => t.toLowerCase()));
   }
 
   public static isWindowsPath(programPath: string): boolean {
@@ -42,11 +42,5 @@ export class AppIdentity {
       throw new BundleIdInvalidException(bundleId);
 
     return new AppIdentity(bundleId.toLowerCase());
-  }
-
-  private static toWindowsLowerCase(character: string): string {
-    const lower = character.toLowerCase();
-
-    return character.length === 1 && lower.length === 1 && lower.toUpperCase() === character ? lower : character;
   }
 }

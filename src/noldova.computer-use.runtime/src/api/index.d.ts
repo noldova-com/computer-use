@@ -970,10 +970,9 @@ export declare class AppIdentity {
   public constructor(id: string);
 
   /**
-   * Creates a Windows identity in its one form: the path normalized, with backslashes and without `.` or `..` parts, then in lower case
-   * where Windows folds case the same way: a character becomes its lower case only when both are one UTF-16 unit and its lower case's
-   * upper case is the character, so a letter such as `İ`, `ẞ` or the Kelvin sign keeps its case, and Windows, which compares paths
-   * and opens files by its own case folding, finds the program the identity names.
+   * Creates a Windows identity in its one form: the path normalized, with backslashes and without `.` or `..` parts, then with the
+   * ASCII capitals `A` to `Z` in lower case and every other character as given, such as `İ`, `Ö` or a Cherokee capital, since only
+   * ASCII folds the same in every Windows version's case table, by which Windows compares paths and opens files.
    * The Windows backend reports every app this way, from the long path the system gives for the program.
    *
    * @param programPath The program's full path, from a drive or a network share.
