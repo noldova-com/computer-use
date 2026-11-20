@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { after, describe, it, type TestContext } from "node:test";
 
-import { type Heartbeat, MonitorRunningException, type PhysicalInput, PhysicalInputKind } from "@noldova/computer-use.runtime";
+import { type Heartbeat, KeyName, MonitorRunningException, type PhysicalInput, PhysicalInputKind } from "@noldova/computer-use.runtime";
 import type { MacBackend } from "@noldova/computer-use.runtime/macos";
 
 import type { MacScriptChannelDouble } from "../doubles/mac-script-channel-double.fixture.ts";
@@ -132,6 +132,20 @@ describe("the macOS backend's watch for the person", () => {
     run.tick();
 
     assert.deepEqual(run.channel.calls.map(c => c.method), ["startWatch", "stopWatch"]);
+  });
+
+  it("marks each input sent while the watch runs as watched, so the process refuses it once a restart has lost the watch, and none before or after", async t => {
+    const run = new WatchRun(t);
+    const signal = HangGuard.signal();
+    const press = (): Promise<void> => run.backend.input.pressKeyAsync(MacBackendHarness.target, KeyName.Tab, [], signal);
+
+    await press();
+    await run.backend.physicalInput.startAsync(signal);
+    await press();
+    await run.backend.physicalInput.stopAsync();
+    await press();
+
+    assert.deepEqual(run.channel.named("pressKey").map(p => "watched" in p ? p.watched : null), [false, true, false]);
   });
 
   it("refuses a second start, and starts nothing once the call has ended", async t => {
