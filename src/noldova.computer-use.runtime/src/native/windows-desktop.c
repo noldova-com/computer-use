@@ -2598,6 +2598,10 @@ static BOOL is_past(ULONGLONG deadline) {
   return GetTickCount64() >= deadline;
 }
 
+static BOOL is_timeout(HRESULT result, ULONGLONG deadline) {
+  return result == UIA_E_TIMEOUT || result == HRESULT_FROM_WIN32(ERROR_TIMEOUT) || is_past(deadline);
+}
+
 static BOOL limit_to_time_left(ULONGLONG deadline);
 
 static void free_references(control_references *references) {
@@ -2977,7 +2981,7 @@ static void run_read(control_request *request) {
     }
     found = IUIAutomation2_ElementFromHandle(automation, request->target.window, &start);
     if (FAILED(found) || start == NULL) {
-      if (found == UIA_E_TIMEOUT || found == HRESULT_FROM_WIN32(ERROR_TIMEOUT) || is_past(request->deadline))
+      if (is_timeout(found, request->deadline))
         request->is_timed_out = TRUE;
       else
         strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't find the window.");
@@ -2989,13 +2993,19 @@ static void run_read(control_request *request) {
   references->read = ++control_reads;
   if (request->has_handle) {
     IUIAutomationElement *cached = NULL;
+    HRESULT built;
     if (!limit_to_time_left(request->deadline)) {
       request->is_timed_out = TRUE;
       IUIAutomationElement_Release(start);
       return;
     }
-    if (FAILED(IUIAutomationElement_BuildUpdatedCache(start, find_cache, &cached)) || cached == NULL
-        || FAILED(IUIAutomationElement_get_CachedBoundingRectangle(cached, &area))) {
+    built = IUIAutomationElement_BuildUpdatedCache(start, find_cache, &cached);
+    if (FAILED(built) && is_timeout(built, request->deadline)) {
+      request->is_timed_out = TRUE;
+      IUIAutomationElement_Release(start);
+      return;
+    }
+    if (FAILED(built) || cached == NULL || FAILED(IUIAutomationElement_get_CachedBoundingRectangle(cached, &area))) {
       strcpy_s(request->error, MAX_ERROR_TEXT, "The control is gone.");
       if (cached != NULL)
         IUIAutomationElement_Release(cached);
