@@ -664,16 +664,6 @@ static napi_value person_input_before_next_send(napi_env env, napi_callback_info
   return NULL;
 }
 
-static napi_value partial_next_send_export(napi_env env, napi_callback_info info) {
-  napi_value argument;
-  uint32_t count = 0;
-  if (read_arguments(env, info, 1, &argument) == NULL)
-    return NULL;
-  CHECK(env, napi_get_value_uint32(env, argument, &count));
-  InterlockedExchange(&partial_next_send, (LONG)count);
-  return NULL;
-}
-
 static const char *send_batch(const target_window *target, input_batch *batch, LONG physical_before, const modifier_list *modifiers, DWORD button_up, WORD key, POINT at, char *error, BOOL *is_sent) {
   *is_sent = FALSE;
   error[0] = '\0';
@@ -706,6 +696,16 @@ static napi_value read_arguments(napi_env env, napi_callback_info info, size_t e
   }
   memcpy(values, all, expected * sizeof(napi_value));
   return values[0];
+}
+
+static napi_value partial_next_send_export(napi_env env, napi_callback_info info) {
+  napi_value argument;
+  uint32_t count = 0;
+  if (read_arguments(env, info, 1, &argument) == NULL)
+    return NULL;
+  CHECK(env, napi_get_value_uint32(env, argument, &count));
+  InterlockedExchange(&partial_next_send, (LONG)count);
+  return NULL;
 }
 
 static napi_value read_point(napi_env env, napi_value x, napi_value y, POINT *point) {

@@ -662,8 +662,7 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     const front = await session.frontAsync();
     const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.target.app.id };
 
-    for (const text of ["ab
-", "ab	"]) {
+    for (const text of ["ab\n", "ab\t"]) {
       session.window.send("focus box");
       assert.equal(await session.window.takeLineAsync("box focused ", TIMEOUT_MS), "box focused True");
       stopSendAfter(5);
