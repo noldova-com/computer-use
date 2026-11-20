@@ -3171,11 +3171,33 @@ static void run_focus(control_request *request) {
   IUIAutomationElement_Release(focused);
 }
 
+static void diag_warm(void) {
+  IUIAutomationElement *root = NULL;
+  IUIAutomationElementArray *all = NULL;
+  LARGE_INTEGER before;
+  LARGE_INTEGER after;
+  LARGE_INTEGER frequency;
+  char line[128];
+  QueryPerformanceCounter(&before);
+  if (SUCCEEDED(IUIAutomation2_GetRootElement(automation, &root)) && root != NULL) {
+    if (SUCCEEDED(IUIAutomationElement_FindAllBuildCache(root, TreeScope_Children, control_view, read_cache, &all)) && all != NULL)
+      IUIAutomationElementArray_Release(all);
+    IUIAutomationElement_Release(root);
+  }
+  QueryPerformanceCounter(&after);
+  QueryPerformanceFrequency(&frequency);
+  sprintf_s(line, sizeof line, "warm ms=%lld
+", (after.QuadPart - before.QuadPart) * 1000 / frequency.QuadPart);
+  diag_write(line);
+}
+
 static DWORD WINAPI run_controls(LPVOID parameter) {
   BOOL is_started;
   (void)parameter;
   enter_physical_pixels();
   is_started = start_automation();
+  if (is_started)
+    diag_warm();
   AcquireSRWLockExclusive(&control_lock);
   control_ready = TRUE;
   WakeAllConditionVariable(&control_changed);
