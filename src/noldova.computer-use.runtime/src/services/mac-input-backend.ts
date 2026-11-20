@@ -13,10 +13,12 @@ import path from "node:path";
 import { ArgumentOutOfRangeException } from "@noldova/context.exceptions";
 import type { IModuleLog } from "@noldova/desktop.runtime";
 
+import { MacScriptClosedException } from "../exceptions/mac-script-closed.exception.ts";
 import { MacScriptEndedException } from "../exceptions/mac-script-ended.exception.ts";
 import { MacStopFolderFailedException } from "../exceptions/mac-stop-folder-failed.exception.ts";
 import { RefusalException } from "../exceptions/refusal.exception.ts";
 import type { IInputBackend } from "../interfaces/backend/i-input-backend.ts";
+import type { IMacDragInProgress } from "../interfaces/i-mac-drag-in-progress.ts";
 import type { IMacGlideStepJson } from "../interfaces/i-mac-glide-step-json.ts";
 import type { IMacOutcomeJson } from "../interfaces/i-mac-outcome-json.ts";
 import type { IMacTargetJson } from "../interfaces/i-mac-target-json.ts";
@@ -60,6 +62,7 @@ export class MacInputBackend implements IInputBackend {
   ];
 
   private readonly api: MacDesktopApi;
+  private readonly drags: Set<IMacDragInProgress> = new Set();
   private readonly log: IModuleLog;
   private readonly stopFolder: string;
 
@@ -100,26 +103,41 @@ export class MacInputBackend implements IInputBackend {
       stops.push(writeFile(stopPath, "", { mode: Resources.privateFileMode }).catch((error: unknown) => this.log.write(Resources.formatStopFileFailed(String(error)))));
     };
     signal.addEventListener("abort", end, { once: true });
+    const settled = Promise.withResolvers<void>();
+    const drag: IMacDragInProgress = { end, settled: settled.promise };
+    this.drags.add(drag);
     let outcome: IMacOutcomeJson;
     try {
       outcome = await this.api.dragAsync(MacInputBackend.toTarget(target), from.x, from.y, to.x, to.y, steps, button.value, modifiers.map(t => t.value), stopPath);
     } catch (error) {
-      if (error instanceof MacScriptEndedException)
+      if (error instanceof MacScriptEndedException && !(error instanceof MacScriptClosedException))
         await this.api.releaseAsync(button.value, modifiers.map(t => t.value)).catch((released: unknown) => this.log.write(Resources.formatDragReleaseFailed(String(released))));
       throw error;
     } finally {
+      this.drags.delete(drag);
       signal.removeEventListener("abort", end);
-      await Promise.all(stops);
-      await rm(stopPath, { force: true }).catch((error: unknown) => {
-        if (!BackendFailures.isSystemError(error))
-          throw error;
+      try {
+        await Promise.all(stops);
+        await rm(stopPath, { force: true }).catch((error: unknown) => {
+          if (!BackendFailures.isSystemError(error))
+            throw error;
 
-        this.log.write(Resources.formatStopFileLeft(String(error)));
-      });
+          this.log.write(Resources.formatStopFileLeft(String(error)));
+        });
+      } finally {
+        settled.resolve();
+      }
     }
     if (outcome.status === Resources.stoppedStatus && outcome.inputSent !== true)
       signal.throwIfAborted();
     MacInputBackend.settle(outcome);
+  }
+
+  public async endDragsAsync(): Promise<void> {
+    const drags = [...this.drags];
+    for (const drag of drags)
+      drag.end();
+    await Promise.all(drags.map(t => t.settled));
   }
 
   public async scrollAsync(target: InputTarget, at: DesktopPoint, amount: ScrollAmount, modifiers: readonly ModifierKey[], signal: AbortSignal): Promise<void> {

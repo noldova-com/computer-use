@@ -51,6 +51,7 @@ export class MacBackend implements IOperatingSystemBackend {
   public readonly physicalInput: IPhysicalInputMonitor;
   public readonly windows: IWindowBackend;
   private readonly channel: IMacScriptChannel;
+  private readonly macInput: MacInputBackend;
 
   public constructor(channel: IMacScriptChannel, capturer: IMacScreenCapturer, signatures: IMacSignatureReader, hostPath: string, stopFolder: string, log: IModuleLog) {
     const api = new MacDesktopApi(channel);
@@ -60,7 +61,8 @@ export class MacBackend implements IOperatingSystemBackend {
     this.controls = new MacControlBackend(api);
     this.channel = channel;
     this.displays = new MacDisplayBackend(api);
-    this.input = new MacInputBackend(api, stopFolder, log);
+    this.macInput = new MacInputBackend(api, stopFolder, log);
+    this.input = this.macInput;
     this.physicalInput = new MacPhysicalInputMonitor(api, Resources.macHeartbeatIntervalMs, () => Date.now(), log);
     this.windows = new MacWindowBackend(api);
   }
@@ -83,6 +85,7 @@ export class MacBackend implements IOperatingSystemBackend {
   }
 
   public async closeAsync(): Promise<void> {
+    await this.macInput.endDragsAsync();
     await this.channel.closeAsync();
   }
 }
