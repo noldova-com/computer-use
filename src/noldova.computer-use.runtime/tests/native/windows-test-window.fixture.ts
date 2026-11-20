@@ -31,11 +31,11 @@ export class WindowsTestWindow {
   private readonly process: ChildProcessWithoutNullStreams;
   private readonly waiters: Set<() => void> = new Set();
 
-  public constructor(script: string = "test-window.ps1", values: Readonly<Record<string, string | number>> = {}) {
+  public constructor(script: string = "test-window.ps1", values: Readonly<Record<string, string | number>> = {}, program: string = "powershell.exe") {
     const bringToFront = fs.readFileSync(path.join(WindowsTestWindow.FOLDER, "bring-to-front.ps1"), "utf8");
     const source = Object.entries({ BRING_TO_FRONT: bringToFront, TITLE: this.title, ...values }).reduce((text, [name, value]) => text.replaceAll(`__${name}__`, `${value}`), fs.readFileSync(path.join(WindowsTestWindow.FOLDER, script), "utf8"));
     const command = Buffer.from(source, "utf16le").toString("base64");
-    this.process = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", command], { windowsHide: false });
+    this.process = spawn(program, ["-NoProfile", "-NonInteractive", "-EncodedCommand", command], { windowsHide: false });
     this.process.on("error", (error: Error) => this.fail(error));
     this.process.stdin.on("error", (error: Error) => {
       this.errors += `${String(error)}\n`;
