@@ -139,7 +139,7 @@ The files are in `src/noldova.computer-use.runtime/tests/native/`.
 
 | File | Tests | Could run on a hosted runner | Need a test computer, and why |
 |---|---|---|---|
-| `mac-backend.native.ts` | 46 | 45, on macOS ARM64 | 1: the screenshot and zoom at the display's scale needs a display at scale 2, and skips itself below it |
+| `mac-backend.native.ts` | 48 | 47, on macOS ARM64 | 1: the screenshot and zoom at the display's scale needs a display at scale 2, and skips itself below it |
 | `mac-test-window.native.ts` | 11 | 11, on macOS ARM64 | None |
 | `windows-backend.native.ts` | 34 | 33, on Windows | 1: typing into Calculator needs Windows 11's own UWP Calculator, which the Windows Server image doesn't ship |
 | `step-timing.native.ts` | 1 | 1, on Windows and macOS ARM64, though a shared runner's times say little about a test computer's | None |

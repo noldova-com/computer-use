@@ -1243,6 +1243,39 @@ describe("the macOS backend on the desktop", { skip: process.platform !== "darwi
     assert.deepEqual((await window.takeUntilSentinelAsync(TIMEOUT_MS)).filter(t => t.startsWith("click ")), []);
   });
 
+  it("reports the person's input at the first poll after the input process ended during a watch, since the new process holds no watch", async () => {
+    const input = new MacScriptProcess(starter, "/usr/bin/osascript", ["-l", "JavaScript", MacBackend.scriptFile], TIMEOUT_MS);
+
+    try {
+      await input.callAsync("startWatch", {});
+      const watched = await input.callAsync("pollWatch", {});
+      await input.closeAsync();
+      const restarted = await input.callAsync("pollWatch", {});
+
+      assert.deepEqual([watched, restarted], [{ hasMoved: false }, { hasMoved: true }]);
+    } finally {
+      await input.closeAsync();
+    }
+  });
+
+  it("refuses a key sent as watched after the input process ended during a watch, before any poll, sending nothing, since the new process holds no watch", async () => {
+    await focusTextFieldAsync();
+    const front = await frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, bundleId: front.target.app.id };
+    const input = new MacScriptProcess(starter, "/usr/bin/osascript", ["-l", "JavaScript", MacBackend.scriptFile], TIMEOUT_MS);
+
+    try {
+      await input.callAsync("startWatch", {});
+      await input.closeAsync();
+      const outcome = await input.callAsync("pressKey", { target, key: "Tab", modifiers: [], watched: true });
+
+      assert.deepEqual(outcome, { status: "refused", reason: "PhysicalInput", inputSent: false });
+    } finally {
+      await input.closeAsync();
+    }
+    assert.deepEqual((await window.takeUntilSentinelAsync(TIMEOUT_MS)).filter(t => t.startsWith("key ") || t.startsWith("text")), []);
+  });
+
   it("watches the pointer, with heartbeats and no report of the module's own input, a glide's, a drag's, a click's and a scroll's among it", async () => {
     const front = await frontAsync();
     const point = await findMarkerAsync(front);

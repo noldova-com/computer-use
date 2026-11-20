@@ -26,6 +26,7 @@ import { MacAnswers } from "./mac-answers.ts";
 
 export class MacDesktopApi {
   private readonly channel: IMacScriptChannel;
+  private isWatching: boolean = false;
 
   public constructor(channel: IMacScriptChannel) {
     this.channel = channel;
@@ -69,6 +70,7 @@ export class MacDesktopApi {
 
   public async startWatchAsync(): Promise<void> {
     await this.channel.callAsync(Resources.macScriptMethods.startWatch, {});
+    this.isWatching = true;
   }
 
   public async pollWatchAsync(): Promise<boolean> {
@@ -76,6 +78,7 @@ export class MacDesktopApi {
   }
 
   public async stopWatchAsync(): Promise<void> {
+    this.isWatching = false;
     await this.channel.callAsync(Resources.macScriptMethods.stopWatch, {});
   }
 
@@ -84,31 +87,31 @@ export class MacDesktopApi {
   }
 
   public async glidePointerAsync(target: IMacTargetJson, steps: readonly IMacGlideStepJson[], points: readonly { readonly x: number; readonly y: number }[]): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.glidePointer, { target, steps, points }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.glidePointer, { target, steps, points, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async movePointerAsync(target: IMacTargetJson, x: number, y: number): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.movePointer, { target, x, y }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.movePointer, { target, x, y, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async clickAsync(target: IMacTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[]): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.click, { target, x, y, button, count, modifiers }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.click, { target, x, y, button, count, modifiers, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async dragAsync(target: IMacTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IMacGlideStepJson[], button: string, modifiers: readonly string[], stopPath: string): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.drag, { target, fromX, fromY, toX, toY, steps, button, modifiers, stopPath }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.drag, { target, fromX, fromY, toX, toY, steps, button, modifiers, stopPath, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async scrollAsync(target: IMacTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[]): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.scroll, { target, x, y, deltaX, deltaY, modifiers }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.scroll, { target, x, y, deltaX, deltaY, modifiers, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async typeTextAsync(target: IMacTargetJson, text: string): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.typeText, { target, text }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.typeText, { target, text, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async pressKeyAsync(target: IMacTargetJson, key: string, modifiers: readonly string[]): Promise<IMacOutcomeJson> {
-    return await this.readAsync(Resources.macScriptMethods.pressKey, { target, key, modifiers }, MacAnswers.isOutcome);
+    return await this.readAsync(Resources.macScriptMethods.pressKey, { target, key, modifiers, watched: this.isWatching }, MacAnswers.isOutcome);
   }
 
   public async readControlsAsync(target: IMacTargetJson, underHandle: string | null, timeoutMs: number): Promise<IMacControlSliceJson> {
