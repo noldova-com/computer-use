@@ -912,7 +912,7 @@ export declare class MacBackend implements IOperatingSystemBackend {
   public static scriptFileOf(moduleUrl: string): string;
 
   /**
-   * Ends the input process, failing every call still waiting.
+   * Ends a drag in progress through its stop file and waits for it to release its button and modifiers, then ends the input process, failing every call still waiting.
    */
   public closeAsync(): Promise<void>;
 }
