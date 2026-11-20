@@ -187,6 +187,7 @@ class Resources {
   public static readonly personInputBeforeSendArgument: string = "--person-input-before-send";
   public static readonly parametersField: string = "parameters";
   public static readonly targetField: string = "target";
+  public static readonly watchedField: string = "watched";
   public static readonly windowIdField: string = "windowId";
   public static readonly processIdField: string = "processId";
   public static readonly bundleIdField: string = "bundleId";
@@ -338,6 +339,10 @@ interface IWatch {
   readonly countedAtStart: readonly ICounter[];
   ownCount: number;
   fencedCount: number;
+}
+
+interface ISendTarget extends IMacTargetJson {
+  readonly isWatched: boolean;
 }
 
 interface ICounter {
@@ -605,10 +610,10 @@ function readFocusRefusal(processId: number): string | null {
   return subrole.value !== null && subrole.value.js === Resources.secureSubrole ? Resources.passwordFieldReason : null;
 }
 
-function checkTarget(target: IMacTargetJson, points: readonly IPoint[], isKeyboard: boolean): string | null {
+function checkTarget(target: ISendTarget, points: readonly IPoint[], isKeyboard: boolean): string | null {
   if ($.AXIsProcessTrusted() !== true)
     return Resources.missingGrantReason;
-  if (hasPersonMoved())
+  if ((target.isWatched && watch === null) || hasPersonMoved())
     return Resources.physicalInputReason;
   const front = readFrontWindow();
   if (front === null || front.windowId !== target.windowId || front.processId !== target.processId || front.bundleId !== target.bundleId)
@@ -711,7 +716,7 @@ function readStopPath(stopPath: unknown): string {
   return stopPath;
 }
 
-function glide(target: IMacTargetJson, points: readonly IPoint[], steps: readonly IMacGlideStepJson[], button: IButton | null, flags: number,
+function glide(target: ISendTarget, points: readonly IPoint[], steps: readonly IMacGlideStepJson[], button: IButton | null, flags: number,
   stopPath: string | null = null): IGlide {
   const start = uptimeMs();
   let at: IPoint | null = null;
@@ -768,7 +773,7 @@ function finish(target: IMacTargetJson): IMacOutcomeJson {
   return { status: Resources.doneStatus };
 }
 
-function send(target: IMacTargetJson, points: readonly IPoint[], isKeyboard: boolean, sendInput: () => string | null): IMacOutcomeJson {
+function send(target: ISendTarget, points: readonly IPoint[], isKeyboard: boolean, sendInput: () => string | null): IMacOutcomeJson {
   const reason = checkTarget(target, points, isKeyboard);
   if (reason !== null)
     return { status: Resources.refusedStatus, reason, inputSent: false };
@@ -1421,12 +1426,13 @@ function readPointListField(fields: Fields, name: string): readonly IPoint[] {
   return list.map(t => readPointField(readFields(t, name), Resources.xField, Resources.yField));
 }
 
-function readTargetField(fields: Fields): IMacTargetJson {
+function readTargetField(fields: Fields): ISendTarget {
   const target = readFields(fields.get(Resources.targetField), Resources.targetField);
   return {
     windowId: readTextField(target, Resources.windowIdField),
     processId: readWholeField(target, Resources.processIdField, 1, Resources.maxProcessId),
-    bundleId: readTextField(target, Resources.bundleIdField)
+    bundleId: readTextField(target, Resources.bundleIdField),
+    isWatched: fields.get(Resources.watchedField) === true
   };
 }
 
@@ -1458,7 +1464,7 @@ const METHODS: { readonly [name: string]: Method } = {
     watch = { expected: [readPointer()], countedAtStart: readCounters(), ownCount: 0, fencedCount: 0 };
     return null;
   },
-  pollWatch: (): IMacWatchPollJson => ({ hasMoved: hasPersonMoved() }),
+  pollWatch: (): IMacWatchPollJson => ({ hasMoved: watch === null || hasPersonMoved() }),
   stopWatch: () => {
     watch = null;
     return null;

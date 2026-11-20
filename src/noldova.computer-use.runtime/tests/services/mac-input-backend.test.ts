@@ -53,7 +53,7 @@ describe("the macOS backend's input", () => {
     const origin = new DesktopPoint(0, 0);
     const glide = (to: DesktopPoint, points: readonly DesktopPoint[]): readonly { readonly method: string; readonly parameters: object }[] => [
       { method: "readPointer", parameters: {} },
-      { method: "glidePointer", parameters: { target: TARGET_JSON, steps: MacBackendHarness.stepsOf(origin, to), points: points.map(t => ({ x: t.x, y: t.y })) } }
+      { method: "glidePointer", parameters: { target: TARGET_JSON, steps: MacBackendHarness.stepsOf(origin, to), points: points.map(t => ({ x: t.x, y: t.y })), watched: false } }
     ];
 
     await backend.input.movePointerAsync(TARGET, new DesktopPoint(1, 2), signal);
@@ -68,9 +68,9 @@ describe("the macOS backend's input", () => {
     assert.equal(path.dirname(stopPath), STOP_FOLDER);
     assert.deepEqual(channel.calls, [
       ...glide(new DesktopPoint(1, 2), [new DesktopPoint(1, 2)]),
-      { method: "movePointer", parameters: { target: TARGET_JSON, x: 1, y: 2 } },
+      { method: "movePointer", parameters: { target: TARGET_JSON, x: 1, y: 2, watched: false } },
       ...glide(new DesktopPoint(3, 4), [new DesktopPoint(3, 4)]),
-      { method: "click", parameters: { target: TARGET_JSON, x: 3, y: 4, button: "Right", count: 2, modifiers: ["Shift", "Meta"] } },
+      { method: "click", parameters: { target: TARGET_JSON, x: 3, y: 4, button: "Right", count: 2, modifiers: ["Shift", "Meta"], watched: false } },
       ...glide(new DesktopPoint(5, 6), [new DesktopPoint(5, 6), new DesktopPoint(7, 8)]),
       {
         method: "drag",
@@ -83,13 +83,14 @@ describe("the macOS backend's input", () => {
           steps: MacBackendHarness.stepsOf(new DesktopPoint(5, 6), new DesktopPoint(7, 8)),
           button: "Left",
           modifiers: ["Alt"],
-          stopPath
+          stopPath,
+          watched: false
         }
       },
       ...glide(new DesktopPoint(9, 10), [new DesktopPoint(9, 10)]),
-      { method: "scroll", parameters: { target: TARGET_JSON, x: 9, y: 10, deltaX: -1, deltaY: 3, modifiers: ["Control"] } },
-      { method: "typeText", parameters: { target: TARGET_JSON, text: "héllo 😀" } },
-      { method: "pressKey", parameters: { target: TARGET_JSON, key: "Tab", modifiers: ["Shift"] } }
+      { method: "scroll", parameters: { target: TARGET_JSON, x: 9, y: 10, deltaX: -1, deltaY: 3, modifiers: ["Control"], watched: false } },
+      { method: "typeText", parameters: { target: TARGET_JSON, text: "héllo 😀", watched: false } },
+      { method: "pressKey", parameters: { target: TARGET_JSON, key: "Tab", modifiers: ["Shift"], watched: false } }
     ]);
   });
 
