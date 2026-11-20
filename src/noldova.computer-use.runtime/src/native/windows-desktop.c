@@ -2977,7 +2977,7 @@ static void run_read(control_request *request) {
     }
     found = IUIAutomation2_ElementFromHandle(automation, request->target.window, &start);
     if (FAILED(found) || start == NULL) {
-      if (found == UIA_E_TIMEOUT || is_past(request->deadline))
+      if (found == UIA_E_TIMEOUT || found == HRESULT_FROM_WIN32(ERROR_TIMEOUT) || is_past(request->deadline))
         request->is_timed_out = TRUE;
       else
         strcpy_s(request->error, MAX_ERROR_TEXT, "UI Automation couldn't find the window.");
