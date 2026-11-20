@@ -562,7 +562,9 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
   });
 
   it("presses Escape, which closes the test window", async () => {
-    await backend.input.pressKeyAsync((await session.frontAsync()).target, KeyName.Escape, [], AbortSignal.timeout(TIMEOUT_MS));
+    await backend.input.pressKeyAsync((await session.frontAsync()).target, KeyName.Escape, [], AbortSignal.timeout(TIMEOUT_MS)).catch((error: unknown) => {
+      assert.ok(error instanceof RefusalException && error.reason.value === "ForegroundChanged" && error.isInputSent, `Escape failed with ${String(error)}.`);
+    });
 
     assert.equal(await session.window.exitAsync(TIMEOUT_MS), 0);
     assert.equal(await session.window.takeLineAsync("closed", TIMEOUT_MS), "closed");
