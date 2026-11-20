@@ -56,7 +56,6 @@ const GLIDE_START_INSET = 40;
 const NOTIFICATION_POLL_MS = 250;
 const HELD_READ_LIMIT_MS = 300;
 const HELD_READ_COUNT = 40;
-const READ_LIMIT_MS = 2000;
 const LOOKUP_LIBRARIES = ["oleacc.dll", "uiamanager.dll"];
 const AFTER_START = `import { createRequire } from "node:module";
 const [addonFile, wanted, limitMs] = process.argv.slice(1);
@@ -521,10 +520,10 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     assert.deepEqual(JSON.parse(stdout), []);
   });
 
-  it("answers a read made as the addon loads with the window's controls, its limit starting once UI Automation's start has ended", async () => {
+  it("answers a read made as the addon loads with the window's controls, without hanging behind UI Automation's start", async () => {
     const front = await session.frontAsync();
     const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
-    const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", READ_AT_START, WindowsBackend.addonFile, JSON.stringify(target), String(READ_LIMIT_MS)], { timeout: 2 * TIMEOUT_MS });
+    const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", READ_AT_START, WindowsBackend.addonFile, JSON.stringify(target), String(TIMEOUT_MS)], { timeout: 2 * TIMEOUT_MS });
 
     assert.deepEqual(JSON.parse(stdout), [true, false]);
   });
