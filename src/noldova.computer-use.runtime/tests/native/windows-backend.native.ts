@@ -582,7 +582,26 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     }
 
     const popups = tree.controls.filter(t => t.name.startsWith("Popup ")).map(t => t.name);
-    assert.deepEqual([new Set(popups).size, tree.leftOut - alone.leftOut, tree.timedOut], [15, 1, false], popups.join(", "));
+    const ends = [popups.includes("Popup 16"), popups.includes("Popup 1")];
+    assert.deepEqual([new Set(popups).size, ends, tree.leftOut - alone.leftOut, tree.timedOut], [15, [true, false], 1, false], popups.join(", "));
+  });
+
+  it("reads the windows the test window owns once, as its own controls, leaving none out", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const alone = await session.addon.readControls(target, null, TIMEOUT_MS);
+    session.window.send("popups 16 owned");
+    assert.equal(await session.window.takeLineAsync("popups ", TIMEOUT_MS), "popups 16");
+    let tree: IWindowsControlTreeJson;
+    try {
+      tree = await session.addon.readControls(target, null, TIMEOUT_MS);
+    } finally {
+      session.window.send("close popups");
+      await session.window.takeLineAsync("popups closed", TIMEOUT_MS);
+    }
+
+    const popups = tree.controls.filter(t => t.name.startsWith("Popup ")).map(t => t.name);
+    assert.deepEqual([popups.length, new Set(popups).size, tree.leftOut - alone.leftOut, tree.timedOut], [16, 16, 0, false], popups.join(", "));
   });
 
   it("ends a read of the test window while its thread is held at the read's limit, leaving no UI Automation call running into the next request", async () => {

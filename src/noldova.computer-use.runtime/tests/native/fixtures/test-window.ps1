@@ -146,7 +146,8 @@ function Read-Command {
       $script:moveOnPress = $null
       Report "disarmed $wasArmed"
       Read-Command
-    } elseif ($null -ne $line -and $line -match '^popups (\d+)$') {
+    } elseif ($null -ne $line -and $line -match '^popups (\d+)( owned)?$') {
+      $owned = $Matches[2] -eq " owned"
       $script:popups = @(1..[int] $Matches[1] | ForEach-Object {
         $popup = New-Object System.Windows.Forms.Form
         $popup.Text = "Popup $_"
@@ -155,7 +156,7 @@ function Read-Command {
         $popup.TopMost = $true
         $popup.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
         $popup.Bounds = New-Object System.Drawing.Rectangle(($form.Left + 40 + 4 * $_), ($form.Top + 60 + 4 * $_), 80, 40)
-        $popup.Show()
+        if ($owned) { $popup.Show($form) } else { $popup.Show() }
         $popup
       })
       Report "popups $($script:popups.Count)"

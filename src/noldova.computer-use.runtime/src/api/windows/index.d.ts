@@ -599,7 +599,7 @@ export interface IWindowsDesktopApi {
    *
    * @remarks
    * A whole read lists the window's controls, then each window of its process in front of it, such as a menu or a popup, with its
-   * controls, the 15 nearest the top, each one more adding one to `leftOut`; a read under a control lists only the controls under it. A whole read frees the references every earlier read kept,
+   * controls, the 15 nearest the top, each one more adding one to `leftOut`, but not the windows it owns, which are among its controls; a read under a control lists only the controls under it. A whole read frees the references every earlier read kept,
    * and a read under a control those of the read under a control before it. The read takes at most 200 controls under one control,
    * 50 levels and 2,000 controls; a control off screen, with no area, outside the window or of a process whose program can't be read
    * is left out with everything under it, and each control left out adds one to `leftOut`. A password field's value is never read;

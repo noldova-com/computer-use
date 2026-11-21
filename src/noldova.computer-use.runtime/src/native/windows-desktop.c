@@ -2979,6 +2979,14 @@ static void add_popup(control_request *request, control_references *references, 
     IUIAutomationElement_Release(element);
 }
 
+static BOOL is_owned_by(HWND window, HWND owner) {
+  for (HWND next = GetWindow(window, GW_OWNER); next != NULL; next = GetWindow(next, GW_OWNER)) {
+    if (next == owner)
+      return TRUE;
+  }
+  return FALSE;
+}
+
 static int list_popups(control_request *request, HWND *popups) {
   HWND window = GetTopWindow(NULL);
   int count = 0;
@@ -2986,7 +2994,7 @@ static int list_popups(control_request *request, HWND *popups) {
   while (window != NULL && window != request->target.window) {
     DWORD process_id = 0;
     GetWindowThreadProcessId(window, &process_id);
-    if (process_id == request->target.process_id && is_shown_window(window)) {
+    if (process_id == request->target.process_id && is_shown_window(window) && !is_owned_by(window, request->target.window)) {
       if (count < MAX_CONTROL_ROOTS - 1)
         popups[count++] = window;
       else

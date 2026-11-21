@@ -376,7 +376,7 @@ It never changes the frame, and fails as `Stale` when the display moved or chang
 
 What it reads:
 - Only the window in front, and the menus and popups its app has open in front of it, which the target check counts as that window's; never a window behind it or another app's.
-  On Windows a menu or a popup is a top-level window of its own, so after the window the backend reads each window of the same process that the window stack lists in front of it, the 15 nearest the top, counting each one more as left out; on macOS they are children of the app's element.
+  On Windows a menu or a popup is a top-level window of its own, so after the window the backend reads each window of the same process that the window stack lists in front of it, the 15 nearest the top, counting each one more as left out, but not the windows the window owns, which UI Automation already lists among its children; on macOS they are children of the app's element.
 - The app that hosts the conversation is usually in front when the agent starts, and its windows are the app's own, which the module leaves alone, so that read is refused, as an input is; a granted app's window comes to the front first, which the module has no tool for.
 - The window's app must be granted to the session, whatever its tier: a view-only app's controls are read, though its tier still refuses input.
   Before reading, the runtime asks the center, answered only from what it remembers, whether the app is still granted, which leaves one record, as a screenshot does.
