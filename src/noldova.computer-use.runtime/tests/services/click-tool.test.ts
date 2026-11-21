@@ -70,7 +70,7 @@ describe("computer_click", () => {
     harness.windows.foreground = RuntimeHarness.windowOf(RuntimeHarness.files);
     const asked = harness.center.records().length;
 
-    await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_click", ClickCalls.clicking(0, 0)), ToolFailureCode.Refused, /File Explorer isn't granted to this conversation/);
+    await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_click", ClickCalls.clicking(0, 0)), ToolFailureCode.Refused, /File Explorer isn't granted to this session/);
     assert.equal(harness.center.records().length, asked);
     assert.deepEqual(harness.input.sent, []);
   });

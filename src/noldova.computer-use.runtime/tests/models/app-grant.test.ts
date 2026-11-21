@@ -12,7 +12,7 @@ import { describe, it } from "node:test";
 import { RuntimeHarness } from "../services/runtime-harness.fixture.ts";
 
 describe("an app's grant", () => {
-  it("marks the apps granted to this conversation only", async () => {
+  it("marks the apps granted to this session only", async () => {
     const harness = await RuntimeHarness.startAsync();
     await harness.grantAppAsync(RuntimeHarness.notes);
 
