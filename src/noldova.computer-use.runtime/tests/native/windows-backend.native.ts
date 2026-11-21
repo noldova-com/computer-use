@@ -121,6 +121,16 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     };
   }
 
+  function otherFindSeamOf(addon: unknown): (isLate: boolean) => void {
+    assert.ok(typeof addon === "object" && addon !== null && "timeOutNextOtherFind" in addon, "The addon has no other-find seam.");
+    const timeOut = addon.timeOutNextOtherFind;
+    assert.ok(typeof timeOut === "function", "The addon's other-find seam isn't a function.");
+
+    return isLate => {
+      timeOut.call(addon, isLate);
+    };
+  }
+
   function partialSeamOf(addon: unknown): (count: number) => void {
     assert.ok(typeof addon === "object" && addon !== null && "partialNextSend" in addon, "The addon has no partial-send seam.");
     const limit = addon.partialNextSend;
@@ -522,6 +532,39 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     }
 
     assert.equal(answer, "0 true");
+  });
+
+  it("answers a read as timed out when UI Automation times out listing other processes' controls under the window, and a read refused before it starts takes the seam's mark", async () => {
+    const timeOutNextOtherFind = otherFindSeamOf(createRequire(import.meta.url)(WindowsBackend.addonFile));
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const whole = await session.addon.readControls(target, null, TIMEOUT_MS);
+
+    timeOutNextOtherFind(false);
+    const cut = await session.addon.readControls(target, null, TIMEOUT_MS);
+    timeOutNextOtherFind(false);
+    assert.throws(() => session.addon.readControls(target, null, 0), { name: "RangeError", code: "ERR_WINDOWS_DESKTOP" });
+    const next = await session.addon.readControls(target, null, TIMEOUT_MS);
+
+    assert.equal(whole.timedOut, false);
+    assert.equal(cut.timedOut, true);
+    assert.equal(next.timedOut, false);
+  });
+
+  it("answers a read under a control as timed out when UI Automation lists other processes' controls under it only after the read's limit", async () => {
+    const timeOutNextOtherFind = otherFindSeamOf(createRequire(import.meta.url)(WindowsBackend.addonFile));
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const tree = await session.addon.readControls(target, null, TIMEOUT_MS);
+    const save = tree.controls.find(t => t.name === "Save");
+    assert.ok(save !== undefined, `The read lists ${tree.controls.map(t => t.name).join(", ")}, timed out ${tree.timedOut}.`);
+
+    timeOutNextOtherFind(true);
+    const late = await session.addon.readControls(target, save.handle, HELD_READ_LIMIT_MS);
+    const next = await session.addon.readControls(target, save.handle, TIMEOUT_MS);
+
+    assert.deepEqual([late.controls.length, late.timedOut], [0, true]);
+    assert.deepEqual([next.controls.length, next.timedOut], [0, false]);
   });
 
   it("ends a read of the test window while its thread is held at the read's limit, leaving no UI Automation call running into the next request", async () => {
