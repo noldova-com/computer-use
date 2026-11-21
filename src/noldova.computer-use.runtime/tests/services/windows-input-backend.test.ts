@@ -45,15 +45,13 @@ describe("the Windows backend's input", () => {
     assert.deepEqual(api.calls, []);
   });
 
-  it("glides to each pointer input's point from where the pointer is, then sends each input to the addon with its target, points, names and the person's input count read as the action began", async () => {
+  it("glides to each pointer input's point from where the pointer is, then sends each input to the addon with its target, points and names", async () => {
     const { api, backend } = WindowsBackendHarness.start();
     const signal = HangGuard.signal();
     const origin = new DesktopPoint(0, 0);
-    api.physicalCount = 7;
     const glide = (to: DesktopPoint, points: readonly DesktopPoint[]): readonly { readonly name: string; readonly arguments: readonly unknown[] }[] => [
-      { name: "readPhysicalCount", arguments: [] },
       { name: "readPointer", arguments: [] },
-      { name: "glidePointer", arguments: [TARGET_JSON, WindowsBackendHarness.stepsOf(origin, to), points.map(t => ({ x: t.x, y: t.y })), 7] }
+      { name: "glidePointer", arguments: [TARGET_JSON, WindowsBackendHarness.stepsOf(origin, to), points.map(t => ({ x: t.x, y: t.y }))] }
     ];
 
     await backend.input.movePointerAsync(TARGET, new DesktopPoint(1, 2), signal);
@@ -65,13 +63,13 @@ describe("the Windows backend's input", () => {
 
     assert.deepEqual(api.calls, [
       ...glide(new DesktopPoint(1, 2), [new DesktopPoint(1, 2)]),
-      { name: "movePointer", arguments: [TARGET_JSON, 1, 2, 7] },
+      { name: "movePointer", arguments: [TARGET_JSON, 1, 2] },
       ...glide(new DesktopPoint(3, 4), [new DesktopPoint(3, 4)]),
-      { name: "click", arguments: [TARGET_JSON, 3, 4, "Right", 2, ["Control", "Shift"], 7] },
+      { name: "click", arguments: [TARGET_JSON, 3, 4, "Right", 2, ["Control", "Shift"]] },
       ...glide(new DesktopPoint(5, 6), [new DesktopPoint(5, 6), new DesktopPoint(7, 8)]),
-      { name: "drag", arguments: [TARGET_JSON, 5, 6, 7, 8, WindowsBackendHarness.stepsOf(new DesktopPoint(5, 6), new DesktopPoint(7, 8)), "Left", ["Shift"], new Int32Array(new SharedArrayBuffer(4)), 7] },
+      { name: "drag", arguments: [TARGET_JSON, 5, 6, 7, 8, WindowsBackendHarness.stepsOf(new DesktopPoint(5, 6), new DesktopPoint(7, 8)), "Left", ["Shift"], new Int32Array(new SharedArrayBuffer(4))] },
       ...glide(new DesktopPoint(9, 10), [new DesktopPoint(9, 10)]),
-      { name: "scroll", arguments: [TARGET_JSON, 9, 10, -1, 3, ["Alt"], 7] },
+      { name: "scroll", arguments: [TARGET_JSON, 9, 10, -1, 3, ["Alt"]] },
       { name: "typeText", arguments: [TARGET_JSON, "Hello", 500] },
       { name: "pressKey", arguments: [TARGET_JSON, "Enter", ["Meta"], 500] }
     ]);
@@ -88,7 +86,7 @@ describe("the Windows backend's input", () => {
     };
     await backend.input.scrollAsync(TARGET, new DesktopPoint(9, 10), new ScrollAmount(0, 1), [], signal);
 
-    assert.deepEqual(api.calls.map(t => t.name), ["readPhysicalCount", "readPointer", "click", "readPhysicalCount", "scroll"]);
+    assert.deepEqual(api.calls.map(t => t.name), ["readPointer", "click", "scroll"]);
   });
 
   it("fails the pointer's read as the backend's own failure when the pointer Windows reads isn't a point, and sends an input without a glide", async () => {
@@ -100,7 +98,7 @@ describe("the Windows backend's input", () => {
     await assert.rejects(backend.input.readPointerAsync(HangGuard.signal()), (error: unknown) => error instanceof BackendAnswerInvalidException && error.answer === "readPointer"
       && error.value === pointer && error.cause instanceof ArgumentOutOfRangeException && error.cause.parameterName === "x");
     await backend.input.clickAsync(TARGET, new DesktopPoint(3, 4), PointerButton.Left, ClickCount.Single, [], HangGuard.signal());
-    assert.deepEqual(api.calls.map(t => t.name), ["readPointer", "readPointer", "readPhysicalCount", "readPointer", "click"]);
+    assert.deepEqual(api.calls.map(t => t.name), ["readPointer", "readPointer", "readPointer", "click"]);
   });
 
   for (const reason of [RefusalReason.OtherWindowAtPoint, RefusalReason.PhysicalInput])
@@ -123,46 +121,8 @@ describe("the Windows backend's input", () => {
 
           return true;
         });
-      assert.deepEqual([...new Set(api.calls.map(t => t.name))], ["readPhysicalCount", "readPointer", "glidePointer"]);
+      assert.deepEqual([...new Set(api.calls.map(t => t.name))], ["readPointer", "glidePointer"]);
     });
-
-  it("glides on its own with the person's input count read as the glide began", async () => {
-    const { api, backend } = WindowsBackendHarness.start();
-    const to = new DesktopPoint(3, 4);
-    api.physicalCount = 5;
-
-    await backend.input.glidePointerAsync(TARGET, to, [to], HangGuard.signal());
-
-    assert.deepEqual(api.calls, [
-      { name: "readPhysicalCount", arguments: [] },
-      { name: "readPointer", arguments: [] },
-      { name: "glidePointer", arguments: [TARGET_JSON, WindowsBackendHarness.stepsOf(new DesktopPoint(0, 0), to), [{ x: 3, y: 4 }], 5] }
-    ]);
-  });
-
-  it("passes the count read as a pointer action began to its input, not one read after the glide, so the person's input during the action refuses the input", async () => {
-    const { api, backend } = WindowsBackendHarness.start();
-    const signal = HangGuard.signal();
-    const sends = [
-      () => backend.input.movePointerAsync(TARGET, new DesktopPoint(1, 2), signal),
-      () => backend.input.clickAsync(TARGET, new DesktopPoint(1, 2), PointerButton.Left, ClickCount.Single, [], signal),
-      () => backend.input.dragAsync(TARGET, new DesktopPoint(1, 2), new DesktopPoint(3, 4), PointerButton.Left, [], signal),
-      () => backend.input.scrollAsync(TARGET, new DesktopPoint(1, 2), new ScrollAmount(0, 1), [], signal)
-    ];
-    const glideAsync = api.glidePointer.bind(api);
-    api.glidePointer = async (...values) => {
-      api.physicalCount += 1;
-
-      return await glideAsync(...values);
-    };
-
-    for (const sendAsync of sends)
-      await sendAsync();
-
-    assert.deepEqual(api.calls.filter(t => t.name !== "readPointer" && t.name !== "readPhysicalCount").map(t => [t.name, t.arguments.at(-1)]), [
-      ["glidePointer", 0], ["movePointer", 0], ["glidePointer", 1], ["click", 1], ["glidePointer", 2], ["drag", 2], ["glidePointer", 3], ["scroll", 3]
-    ]);
-  });
 
   it("sends nothing after a glide during which the call ended", async () => {
     const { api, backend } = WindowsBackendHarness.start();

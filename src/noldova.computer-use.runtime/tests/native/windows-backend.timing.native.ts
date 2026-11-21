@@ -110,7 +110,7 @@ describe("the Windows backend's timing on the desktop", { skip: process.platform
         return await moved;
       };
       try {
-        outcome = await session.addon.drag(target, from.x, from.y, to.x, to.y, GlideRecording.heldSteps(from, to), "Left", [], new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)), session.addon.readPhysicalCount());
+        outcome = await session.addon.drag(target, from.x, from.y, to.x, to.y, GlideRecording.heldSteps(from, to), "Left", [], new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)));
         const resumedMs = WindowsDesktopSession.counterMs() - startedMs;
         const movedLine = outcome.inputSent === false ? undefined : await takeMovedAsync();
         const movedAfterMs = movedLine === undefined ? Number.NaN : Number(movedLine.split(" ")[3]) - startedMs;
@@ -155,7 +155,7 @@ describe("the Windows backend's timing on the desktop", { skip: process.platform
       let stoppedMs = Number.NaN;
       const startedMs = WindowsDesktopSession.counterMs();
       const { error } = await session.recordAsync(from, async () => {
-        outcome = await session.addon.drag(target, from.x, from.y, to.x, to.y, GlideRecording.slowSteps(from, to), "Left", [], stop, session.addon.readPhysicalCount());
+        outcome = await session.addon.drag(target, from.x, from.y, to.x, to.y, GlideRecording.slowSteps(from, to), "Left", [], stop);
       }, null, () => {
         Atomics.store(stop, 0, 1);
         stoppedMs = WindowsDesktopSession.counterMs() - startedMs;

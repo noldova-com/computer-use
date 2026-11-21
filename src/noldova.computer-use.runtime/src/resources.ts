@@ -139,7 +139,7 @@ export class Resources {
   public static readonly fileExplorerProgram: string = "explorer.exe";
   public static readonly folderWindowClass: string = "CabinetWClass";
   public static readonly windowsAddonFunctions: readonly string[] = [
-    "listDisplays", "captureWindow", "getForegroundWindow", "listWindows", "readPointer", "readPhysicalCount", "glidePointer", "movePointer", "click", "drag", "scroll", "typeText", "pressKey",
+    "listDisplays", "captureWindow", "getForegroundWindow", "listWindows", "readPointer", "glidePointer", "movePointer", "click", "drag", "scroll", "typeText", "pressKey",
     "startMonitor", "stopMonitor", "showBorder", "hideBorder", "listAppPaths", "describeProgram", "readProgramIcon", "readControls", "findControl", "hitsControl"
   ];
   public static readonly macWindowRoles: readonly string[] = ["AXWindow"];

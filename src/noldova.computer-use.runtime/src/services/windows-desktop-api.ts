@@ -60,28 +60,24 @@ export class WindowsDesktopApi implements IWindowsDesktopApi {
     return this.load().readPointer();
   }
 
-  public readPhysicalCount(): number {
-    return this.load().readPhysicalCount();
+  public async glidePointer(target: IWindowsTargetJson, steps: readonly IWindowsGlideStepJson[], points: readonly IWindowsPointJson[]): Promise<IWindowsOutcomeJson> {
+    return await this.load().glidePointer(target, steps, points);
   }
 
-  public async glidePointer(target: IWindowsTargetJson, steps: readonly IWindowsGlideStepJson[], points: readonly IWindowsPointJson[], physicalBefore: number): Promise<IWindowsOutcomeJson> {
-    return await this.load().glidePointer(target, steps, points, physicalBefore);
+  public movePointer(target: IWindowsTargetJson, x: number, y: number): IWindowsOutcomeJson {
+    return this.load().movePointer(target, x, y);
   }
 
-  public movePointer(target: IWindowsTargetJson, x: number, y: number, physicalBefore: number): IWindowsOutcomeJson {
-    return this.load().movePointer(target, x, y, physicalBefore);
+  public click(target: IWindowsTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[]): IWindowsOutcomeJson {
+    return this.load().click(target, x, y, button, count, modifiers);
   }
 
-  public click(target: IWindowsTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[], physicalBefore: number): IWindowsOutcomeJson {
-    return this.load().click(target, x, y, button, count, modifiers, physicalBefore);
+  public async drag(target: IWindowsTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IWindowsGlideStepJson[], button: string, modifiers: readonly string[], stop: Int32Array): Promise<IWindowsOutcomeJson> {
+    return await this.load().drag(target, fromX, fromY, toX, toY, steps, button, modifiers, stop);
   }
 
-  public async drag(target: IWindowsTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IWindowsGlideStepJson[], button: string, modifiers: readonly string[], stop: Int32Array, physicalBefore: number): Promise<IWindowsOutcomeJson> {
-    return await this.load().drag(target, fromX, fromY, toX, toY, steps, button, modifiers, stop, physicalBefore);
-  }
-
-  public scroll(target: IWindowsTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[], physicalBefore: number): IWindowsOutcomeJson {
-    return this.load().scroll(target, x, y, deltaX, deltaY, modifiers, physicalBefore);
+  public scroll(target: IWindowsTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[]): IWindowsOutcomeJson {
+    return this.load().scroll(target, x, y, deltaX, deltaY, modifiers);
   }
 
   public typeText(target: IWindowsTargetJson, text: string, focusMs: number): IWindowsOutcomeJson {
