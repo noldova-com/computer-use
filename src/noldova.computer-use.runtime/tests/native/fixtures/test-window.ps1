@@ -146,6 +146,25 @@ function Read-Command {
       $script:moveOnPress = $null
       Report "disarmed $wasArmed"
       Read-Command
+    } elseif ($null -ne $line -and $line -match '^popups (\d+)$') {
+      $script:popups = @(1..[int] $Matches[1] | ForEach-Object {
+        $popup = New-Object System.Windows.Forms.Form
+        $popup.Text = "Popup $_"
+        $popup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+        $popup.ShowInTaskbar = $false
+        $popup.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+        $popup.Bounds = New-Object System.Drawing.Rectangle(($form.Left + 40 + 4 * $_), ($form.Top + 60 + 4 * $_), 80, 40)
+        $popup.Show($form)
+        $popup
+      })
+      Report "popups $($script:popups.Count)"
+      Read-Command
+    } elseif ($line -eq "close popups") {
+      foreach ($popup in $script:popups) { $popup.Close() }
+      $script:popups = @()
+      Bring-ToFront $form.Handle
+      Report "popups closed"
+      Read-Command
     } elseif ($null -ne $line -and $line -match '^adopt (\d+)$') {
       $child = [IntPtr] [long] $Matches[1]
       [NoldovaTestWindow.User32]::SetWindowLongPtr($child, -16, [IntPtr] 0x50000000) | Out-Null

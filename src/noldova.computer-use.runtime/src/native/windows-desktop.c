@@ -2979,17 +2979,25 @@ static void add_popup(control_request *request, control_references *references, 
     IUIAutomationElement_Release(element);
 }
 
-static int list_popups(const target_window *target, HWND *popups) {
+static int list_popups(control_request *request, HWND *popups) {
   HWND window = GetTopWindow(NULL);
   int count = 0;
-  while (window != NULL && window != target->window && count < MAX_CONTROL_ROOTS - 1) {
+  uint32_t extra = 0;
+  while (window != NULL && window != request->target.window) {
     DWORD process_id = 0;
     GetWindowThreadProcessId(window, &process_id);
-    if (process_id == target->process_id && is_shown_window(window))
-      popups[count++] = window;
+    if (process_id == request->target.process_id && is_shown_window(window)) {
+      if (count < MAX_CONTROL_ROOTS - 1)
+        popups[count++] = window;
+      else
+        extra++;
+    }
     window = GetWindow(window, GW_HWNDNEXT);
   }
-  return window == target->window ? count : 0;
+  if (window != request->target.window)
+    return 0;
+  request->left_out += extra;
+  return count;
 }
 
 static BOOL make_process_conditions(control_request *request, DWORD process_id) {
@@ -3043,7 +3051,7 @@ static void run_read(control_request *request) {
       strcpy_s(request->error, MAX_ERROR_TEXT, "The window isn't the target's.");
       return;
     }
-    popup_count = list_popups(&request->target, popups);
+    popup_count = list_popups(request, popups);
     if (!limit_to_time_left(request->deadline)) {
       request->is_timed_out = TRUE;
       return;
