@@ -52,7 +52,7 @@ class FixtureAppPreparation {
   }
 
   private static formatChanged(entries: readonly string[]): string {
-    return `Installing the module's archives changed packages that e2e/app/package-lock.json locks: ${entries.join(", ")}; run npm run test:e2e:lock, which relocks it, and commit it.`;
+    return `Installing the module's archives changed or added packages beyond what e2e/app/package-lock.json locks: ${entries.join(", ")}; run npm run test:e2e:lock, which relocks it, and commit it.`;
   }
 
   private static formatFailure(command: readonly string[], code: number | null): string {
@@ -80,7 +80,8 @@ class FixtureAppPreparation {
     const archives = Object.fromEntries(parts.map(t => [t.name, t.fileSpecifier(TestAppLayout.APP_FOLDER)]));
     await this.writeManifestAsync(template.toJson(), { ...dependencies, ...archives });
     await this.runAsync(FixtureAppPreparation.INSTALL_FROM_ARCHIVES);
-    const changed = AppLock.changedEntries(locked, await AppLock.readAsync(path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE)));
+    const changed = AppLock.changedEntries(locked, await AppLock.readAsync(path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE)),
+      new Set(parts.map(t => t.name)));
     if (changed.length > 0)
       throw new Error(FixtureAppPreparation.formatChanged(changed));
     const module = parts.find(t => t.name === FixtureAppPreparation.MODULE_PACKAGE);

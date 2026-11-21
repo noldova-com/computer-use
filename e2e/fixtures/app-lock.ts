@@ -33,11 +33,16 @@ export class AppLock {
     return stale.flat();
   }
 
-  public static changedEntries(before: JsonReader, after: JsonReader): readonly string[] {
+  public static changedEntries(before: JsonReader, after: JsonReader, own: ReadonlySet<string>): readonly string[] {
     const was = before.readObject("packages");
     const now = after.readObject("packages");
-    return Object.keys(was.toJson()).filter(t => t.startsWith(AppLock.INSTALLED))
-      .filter(t => !now.hasField(t) || AppLock.entryOf(was.readObject(t)) !== AppLock.entryOf(now.readObject(t)));
+    const changed = AppLock.installedIn(was).filter(t => !now.hasField(t) || AppLock.entryOf(was.readObject(t)) !== AppLock.entryOf(now.readObject(t)));
+    const added = AppLock.installedIn(now).filter(t => !was.hasField(t) && !own.has(t.slice(t.lastIndexOf(AppLock.INSTALLED) + AppLock.INSTALLED.length)));
+    return [...changed, ...added];
+  }
+
+  private static installedIn(packages: JsonReader): readonly string[] {
+    return Object.keys(packages.toJson()).filter(t => t.includes(AppLock.INSTALLED));
   }
 
   private static pinsOf(entry: JsonReader): string {

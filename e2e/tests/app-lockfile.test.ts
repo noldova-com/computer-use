@@ -73,29 +73,43 @@ describe("The fixture app's lockfile", () => {
 });
 
 describe("The install's changes to the locked packages", () => {
+  const own = new Set([MODULE, `${MODULE}.protocol`]);
   const locked = {
     "": { dependencies: { a: "1.0.0" } },
     "node_modules/a": { version: "1.0.0", resolved: "https://registry.npmjs.org/a/-/a-1.0.0.tgz", integrity: "sha512-a" },
     "node_modules/b": { version: "2.0.0", resolved: "https://registry.npmjs.org/b/-/b-2.0.0.tgz", integrity: "sha512-b" },
     "node_modules/app": { resolved: "src/app", link: true },
-    "src/app": { version: "0.0.1" }
+    "src/app": { version: "0.0.1" },
+    "src/app/node_modules/c": { version: "3.0.0", resolved: "https://registry.npmjs.org/c/-/c-3.0.0.tgz", integrity: "sha512-c" }
   };
 
-  it("names none when the install only adds packages and changes the root and workspace entries", () => {
+  it("names none when the install only adds the module's parts and changes the root and workspace entries", () => {
     assert.deepEqual(AppLock.changedEntries(lockOf(locked), lockOf({
       ...locked,
       "": { dependencies: { a: "1.0.0", [MODULE]: "0.0.2" } },
       "src/app": { version: "0.0.2" },
-      [`node_modules/${MODULE}`]: { version: "0.0.2", resolved: "file:computer-use-0.0.2.tgz" }
-    })), []);
+      [`node_modules/${MODULE}`]: { version: "0.0.2", resolved: "file:computer-use-0.0.2.tgz" },
+      [`node_modules/${MODULE}.protocol`]: { version: "0.0.2", resolved: "file:computer-use.protocol-0.0.2.tgz" }
+    }), own), []);
   });
 
-  it("names each locked package the install moved, re-resolved or dropped", () => {
+  it("names each locked package the install moved, re-resolved or dropped, a workspace's own included", () => {
     assert.deepEqual(AppLock.changedEntries(lockOf(locked), lockOf({
       "": locked[""],
       "node_modules/a": { ...locked["node_modules/a"], version: "1.0.1" },
       "node_modules/app": { ...locked["node_modules/app"], resolved: "src/other" },
-      "src/app": locked["src/app"]
-    })), ["node_modules/a", "node_modules/b", "node_modules/app"]);
+      "src/app": locked["src/app"],
+      "src/app/node_modules/c": { ...locked["src/app/node_modules/c"], integrity: "sha512-other" }
+    }), own), ["node_modules/a", "node_modules/b", "node_modules/app", "src/app/node_modules/c"]);
+  });
+
+  it("names each package the install added that the lockfile doesn't hold, at the top, under a part or under a workspace", () => {
+    assert.deepEqual(AppLock.changedEntries(lockOf(locked), lockOf({
+      ...locked,
+      [`node_modules/${MODULE}`]: { version: "0.0.2", resolved: "file:computer-use-0.0.2.tgz" },
+      "node_modules/d": { version: "4.0.0", resolved: "https://registry.npmjs.org/d/-/d-4.0.0.tgz", integrity: "sha512-d" },
+      [`node_modules/${MODULE}/node_modules/e`]: { version: "5.0.0", resolved: "https://registry.npmjs.org/e/-/e-5.0.0.tgz", integrity: "sha512-e" },
+      "src/app/node_modules/f": { version: "6.0.0", resolved: "https://registry.npmjs.org/f/-/f-6.0.0.tgz", integrity: "sha512-f" }
+    }), own), ["node_modules/d", `node_modules/${MODULE}/node_modules/e`, "src/app/node_modules/f"]);
   });
 });
