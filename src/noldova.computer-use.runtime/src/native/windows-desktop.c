@@ -2896,9 +2896,9 @@ static HRESULT find_other_children(control_request *request, const control_visit
   if (seam == OTHER_FIND_TIMED_OUT)
     return UIA_E_TIMEOUT;
   found = IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, others);
-  now = GetTickCount64();
-  if (seam == OTHER_FIND_LATE && now < request->deadline)
-    Sleep((DWORD)(request->deadline - now));
+  if (seam == OTHER_FIND_LATE)
+    while ((now = GetTickCount64()) < request->deadline)
+      Sleep((DWORD)(request->deadline - now));
   return found;
 }
 
@@ -3501,9 +3501,11 @@ static control_request *new_control_request(napi_env env, control_kind kind) {
 static napi_value read_controls(napi_env env, napi_callback_info info) {
   napi_value arguments[3];
   napi_valuetype type;
+  LONG other_find = InterlockedExchange(&next_other_find, OTHER_FIND_REAL);
   control_request *request = new_control_request(env, CONTROL_READ);
   if (request == NULL)
     return NULL;
+  request->other_find = other_find;
   if (read_arguments(env, info, 3, arguments) == NULL || read_target(env, arguments[0], &request->target) == NULL
       || napi_typeof(env, arguments[1], &type) != napi_ok || (type != napi_null && read_handle(env, arguments[1], request) == NULL)
       || read_timeout(env, arguments[2], request) == NULL) {
@@ -3511,7 +3513,6 @@ static napi_value read_controls(napi_env env, napi_callback_info info) {
     let_go_request(request);
     return NULL;
   }
-  request->other_find = InterlockedExchange(&next_other_find, OTHER_FIND_REAL);
   return queue_control(env, request, "readControls");
 }
 

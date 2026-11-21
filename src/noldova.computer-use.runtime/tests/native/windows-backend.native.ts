@@ -523,7 +523,7 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     assert.equal(answer, "0 true");
   });
 
-  it("answers a read as timed out when UI Automation times out listing other processes' controls under the window", async () => {
+  it("answers a read as timed out when UI Automation times out listing other processes' controls under the window, and a read refused before it starts takes the seam's mark", async () => {
     const timeOutNextOtherFind = otherFindSeamOf(createRequire(import.meta.url)(WindowsBackend.addonFile));
     const front = await session.frontAsync();
     const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
@@ -531,9 +531,13 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
 
     timeOutNextOtherFind(false);
     const cut = await session.addon.readControls(target, null, TIMEOUT_MS);
+    timeOutNextOtherFind(false);
+    assert.throws(() => session.addon.readControls(target, null, 0), { name: "RangeError", code: "ERR_WINDOWS_DESKTOP" });
+    const next = await session.addon.readControls(target, null, TIMEOUT_MS);
 
     assert.equal(whole.timedOut, false);
     assert.equal(cut.timedOut, true);
+    assert.equal(next.timedOut, false);
   });
 
   it("answers a read under a control as timed out when UI Automation lists other processes' controls under it only after the read's limit", async () => {
