@@ -152,9 +152,10 @@ function Read-Command {
         $popup.Text = "Popup $_"
         $popup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
         $popup.ShowInTaskbar = $false
+        $popup.TopMost = $true
         $popup.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
         $popup.Bounds = New-Object System.Drawing.Rectangle(($form.Left + 40 + 4 * $_), ($form.Top + 60 + 4 * $_), 80, 40)
-        $popup.Show($form)
+        $popup.Show()
         $popup
       })
       Report "popups $($script:popups.Count)"
