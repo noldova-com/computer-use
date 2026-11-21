@@ -8,6 +8,9 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { TimerOptions } from "node:timers";
+import timers from "node:timers/promises";
+import { MessageChannel } from "node:worker_threads";
 
 import { PhysicalInputKind } from "@noldova/computer-use.runtime";
 import { AppWindow } from "@noldova/desktop.protocol";
@@ -195,20 +198,76 @@ describe("the watch for the person", () => {
   it("stops control once three heartbeat intervals pass without a beat while a tool sends, and a beat starts the count again", async t => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const harness = await beatingAsync();
-    const { call, release } = await holdInputAsync(harness);
+    const { call, ended, release } = await holdInputAsync(harness);
     const failed = RuntimeHarness.assertFailsAsync(call, ToolFailureCode.OutcomeUncertain, /^The call ended \(Stopped\) after some input may have been sent, so the outcome is uncertain\. Call computer_screenshot before acting again\.$/);
 
     t.mock.timers.tick(deadlineMs - 1);
     harness.monitor.beat();
     t.mock.timers.tick(deadlineMs - 1);
+    await timers.setImmediate();
+    await timers.setImmediate();
     assert.deepEqual(harness.context.published(statusEvent), [controlling]);
     t.mock.timers.tick(1);
+    await ended;
     release();
 
     await failed;
     await harness.tools.idleAsync();
     assert.equal(harness.monitor.isRunning, false);
     assert.deepEqual(harness.context.published(statusEvent), [controlling, stopped]);
+  });
+
+  it("holds the event loop for the turn that stops control after the deadline, so the loop doesn't wait on input or output first", async t => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const harness = await beatingAsync();
+    const { call, ended, release } = await holdInputAsync(harness);
+    const failed = RuntimeHarness.assertFailsAsync(call, ToolFailureCode.OutcomeUncertain, /^The call ended \(Stopped\) after some input may have been sent, so the outcome is uncertain\. Call computer_screenshot before acting again\.$/);
+    const immediates = (): number => process.getActiveResourcesInfo().filter(u => u === "Immediate").length;
+    const setImmediateAsync = timers.setImmediate;
+    const held: number[] = [];
+    t.mock.method(timers, "setImmediate", async <T>(value?: T, options?: TimerOptions): Promise<T> => {
+      const before = immediates();
+      const turn = setImmediateAsync(value, options);
+      held.push(immediates() - before);
+
+      return await turn;
+    });
+
+    t.mock.timers.tick(deadlineMs);
+    await ended;
+    release();
+
+    await failed;
+    assert.deepEqual(held, [1]);
+    assert.deepEqual(harness.context.published(statusEvent), [controlling, stopped]);
+  });
+
+  it("counts a beat that waited behind a send which held the thread past the deadline, so control goes on", async () => {
+    const shortIntervalMs = 200;
+    const harness = await RuntimeHarness.startAsync(undefined, undefined, null, undefined, undefined, shortIntervalMs);
+    await harness.grantAppAsync(RuntimeHarness.notes);
+    const channel = new MessageChannel();
+    const beaten = Promise.withResolvers<void>();
+    channel.port2.on("message", () => {
+      harness.monitor.beat();
+      beaten.resolve();
+    });
+    const sendAsync = harness.input.typeTextAsync.bind(harness.input);
+    harness.input.typeTextAsync = async (target, chunk, signal) => {
+      harness.monitor.beat();
+      channel.port1.postMessage(null);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)), 0, 0, shortIntervalMs * 5);
+      await sendAsync(target, chunk, signal);
+      await beaten.promise;
+    };
+    try {
+      await harness.callAsync("computer_type", typing);
+    } finally {
+      channel.port1.close();
+    }
+
+    assert.deepEqual(harness.context.published(statusEvent), [controlling]);
+    assert.equal(harness.input.sent.length, 1);
   });
 
   it("counts no missed heartbeat between calls", async t => {
