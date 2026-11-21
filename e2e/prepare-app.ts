@@ -13,7 +13,6 @@ import path from "node:path";
 
 import { JsonReader, type JsonObject } from "@noldova/context.json";
 
-import { AppLockfile } from "./fixtures/app-lockfile.ts";
 import { PlainIcons } from "./fixtures/icons/plain-icons.ts";
 import { PackedPart } from "./fixtures/packed-part.ts";
 import { TestAppLayout } from "./fixtures/test-app-layout.ts";
@@ -27,8 +26,8 @@ class FixtureAppPreparation {
   private static readonly NO_NPM: string = "Run the preparation through npm run, which names npm's own script in npm_execpath.";
   private static readonly NO_LOCKFILE: string = "e2e/app/package-lock.json is missing, so the app's install would take the newest versions in range; run npm run test:e2e:lock, which writes it, and commit it.";
   private static readonly LOCK_COMMAND: string = "lock";
-  private static readonly INSTALL_LOCKED: readonly string[] = ["ci", "--ignore-scripts", "--no-audit", "--no-fund"];
   private static readonly LOCK_ONLY: readonly string[] = ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"];
+  private static readonly INSTALL_FROM_ARCHIVES: readonly string[] = ["install", "--ignore-scripts", "--no-audit", "--no-fund"];
   private static readonly APP_STEPS: readonly (readonly string[])[] = [["run", "install:app"], ["run", "build:app"], ["run", "desktop-tools", "--", "help"]];
 
   private readonly npm: string;
@@ -54,30 +53,25 @@ class FixtureAppPreparation {
     await cp(TestAppLayout.TEMPLATE_FOLDER, TestAppLayout.APP_FOLDER, { recursive: true, force: true, filter: t => !t.split(path.sep).includes("node_modules") });
     await copyFile(path.join(TestAppLayout.REPOSITORY_ROOT, "LICENSE"), path.join(TestAppLayout.APP_FOLDER, "LICENSE"));
     await PlainIcons.writeAsync(path.join(TestAppLayout.APP_FOLDER, "assets", "icons"));
+    if (this.isLocking) {
+      await this.runAsync(FixtureAppPreparation.LOCK_ONLY);
+      await copyFile(path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE), path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.LOCKFILE));
+      return;
+    }
+    if (!existsSync(path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.LOCKFILE)))
+      throw new Error(FixtureAppPreparation.NO_LOCKFILE);
     const parts = await Promise.all(FixtureAppPreparation.PART_FOLDERS.map(t => PackedPart.readAsync(path.join(TestAppLayout.REPOSITORY_ROOT, "src", t))));
     const template = JsonReader.parse(await readFile(path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.MANIFEST), "utf8"));
     const dependencies = template.readObject("dependencies").toJson();
-    const archives = new Map(parts.map(t => [t.name, { version: t.version, resolved: t.fileSpecifier(TestAppLayout.APP_FOLDER) }]));
-    const installed = { ...dependencies, ...Object.fromEntries([...archives].map(([name, t]) => [name, t.resolved])) };
-    await this.writeManifestAsync(template.toJson(), installed);
-    const lockfile = path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE);
-    if (existsSync(path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.LOCKFILE)))
-      await this.rewriteLockfileAsync(installed, archives);
-    else if (!this.isLocking)
-      throw new Error(FixtureAppPreparation.NO_LOCKFILE);
-    if (this.isLocking) {
-      await this.runAsync(FixtureAppPreparation.LOCK_ONLY);
-      await this.rewriteLockfileAsync(installed, archives);
-      await copyFile(lockfile, path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.LOCKFILE));
-      return;
-    }
-    await this.runAsync(FixtureAppPreparation.INSTALL_LOCKED);
+    const archives = Object.fromEntries(parts.map(t => [t.name, t.fileSpecifier(TestAppLayout.APP_FOLDER)]));
+    await this.writeManifestAsync(template.toJson(), { ...dependencies, ...archives });
+    await this.runAsync(FixtureAppPreparation.INSTALL_FROM_ARCHIVES);
     const module = parts.find(t => t.name === FixtureAppPreparation.MODULE_PACKAGE);
     if (module === undefined)
       throw new Error(`No part folder holds ${FixtureAppPreparation.MODULE_PACKAGE}.`);
     const pinned = { ...dependencies, [module.name]: module.version };
     await this.writeManifestAsync(template.toJson(), pinned);
-    await this.rewriteLockfileAsync(pinned, new Map());
+    await this.pinLockfileAsync(pinned);
     for (const step of FixtureAppPreparation.APP_STEPS)
       await this.runAsync(step);
   }
@@ -86,9 +80,12 @@ class FixtureAppPreparation {
     await writeFile(path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.MANIFEST), `${JSON.stringify({ ...template, dependencies }, null, 2)}\n`);
   }
 
-  private async rewriteLockfileAsync(dependencies: JsonObject, archives: ReadonlyMap<string, JsonObject>): Promise<void> {
+  private async pinLockfileAsync(dependencies: JsonObject): Promise<void> {
     const file = path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE);
-    await writeFile(file, AppLockfile.rewrite(await readFile(file, "utf8"), dependencies, archives));
+    const lock = JsonReader.parse(await readFile(file, "utf8"));
+    const packages = lock.readObject("packages");
+    const root = packages.readObject("").toJson();
+    await writeFile(file, `${JSON.stringify({ ...lock.toJson(), packages: { ...packages.toJson(), "": { ...root, dependencies } } }, null, 2)}\n`);
   }
 
   private async runAsync(command: readonly string[]): Promise<void> {

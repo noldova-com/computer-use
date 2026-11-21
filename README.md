@@ -208,8 +208,8 @@ None is declared, and the runtime never uses any. All ship in the published pack
 
 ### End-to-end tests
 
-`npm run test:e2e:prepare` copies the fixture app in `e2e/app/` to `_build/e2e-app`, installs it there with `npm ci` from `e2e/app/package-lock.json`, with the module from its packed archives in `_packages`, and prepares the development app of the Noldova Desktop version `e2e/app/package.json` pins, which moves with the root `package.json`'s pin, so it runs after `npm run build`.
-`npm run test:e2e:lock`, also after `npm run build`, writes `e2e/app/package-lock.json` again, for a change to the fixture app's packages or to the module's dependencies; commit it.
+`npm run test:e2e:prepare` copies the fixture app in `e2e/app/` to `_build/e2e-app`, installs it there from `e2e/app/package-lock.json` with the module from its packed archives in `_packages`, which enter only that copy's lockfile, and prepares the development app of the Noldova Desktop version `e2e/app/package.json` pins, which moves with the root `package.json`'s pin, so it runs after `npm run build`.
+`npm run test:e2e:lock`, also after `npm run build`, writes `e2e/app/package-lock.json` again from the fixture app's own manifest, for a change to its packages; commit it. A new version of the module's parts needs no relock.
 `npm run test:e2e` type-checks `e2e/` and runs the CI suite, `e2e/specs/`: on Linux, a real app on that Noldova Desktop version shows the module as unavailable, with no switch, no failed module, no status bar item and no `computer_` tool, and a command run while the app's window is still starting waits for the start to end.
 CI runs it on Linux x64; locally it runs after the same two steps, under a display.
 `npm run test:e2e:desktop` runs the full in-app suite, `e2e/desktop/`, with the module switched on: the session grant and an app grant, a screenshot, a window read, a click on the native test window's Save button, the status bar item, the system-wide stop key pressed through the operating system, the item's click, and Resume.
