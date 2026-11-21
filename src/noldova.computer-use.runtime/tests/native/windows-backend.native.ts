@@ -56,6 +56,7 @@ const GLIDE_START_INSET = 40;
 
 const NOTIFICATION_POLL_MS = 250;
 const HELD_READ_LIMIT_MS = 300;
+const MONITOR_INTERVAL_MS = 1_000;
 const HELD_READ_COUNT = 40;
 const LOOKUP_LIBRARIES = ["oleacc.dll", "uiamanager.dll"];
 const AFTER_START = `import { createRequire } from "node:module";
@@ -107,6 +108,16 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
 
     return () => {
       mark.call(addon);
+    };
+  }
+
+  function nowSeamOf(addon: unknown): () => void {
+    assert.ok(typeof addon === "object" && addon !== null && "personInputNow" in addon, "The addon has no person-input-now seam.");
+    const count = addon.personInputNow;
+    assert.ok(typeof count === "function", "The addon's person-input-now seam isn't a function.");
+
+    return () => {
+      count.call(addon);
     };
   }
 
@@ -680,6 +691,34 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
 
     for (const refusal of [typed, pressed, clicked, dragged])
       assert.deepEqual(refusal instanceof RefusalException ? [refusal.reason, refusal.isInputSent] : refusal, [RefusalReason.PhysicalInput, false]);
+    assert.deepEqual(await session.enterBarrierAsync(session.window, front.target), []);
+    await backend.input.typeTextAsync(front.target, "q", AbortSignal.timeout(TIMEOUT_MS));
+    assert.match(await session.window.takeLineAsync("text ", TIMEOUT_MS), /q$/);
+  });
+
+  it("refuses a click, typing and a key press as the person's input, with nothing sent, after the person's pointer input between two actions while the monitor runs, and sends again once it stops", async () => {
+    const countPersonInput = nowSeamOf(createRequire(import.meta.url)(WindowsBackend.addonFile));
+    const front = await session.frontAsync();
+    const { point } = await session.findMarkerAsync();
+    session.window.send("focus box");
+    assert.equal(await session.window.takeLineAsync("box focused ", TIMEOUT_MS), "box focused True");
+    session.addon.startMonitor(() => undefined, () => undefined, MONITOR_INTERVAL_MS);
+    let refusals: unknown[];
+    try {
+      await backend.input.movePointerAsync(front.target, point, AbortSignal.timeout(TIMEOUT_MS));
+      countPersonInput();
+      refusals = [
+        await failureOfAsync(() => backend.input.clickAsync(front.target, point, PointerButton.Left, ClickCount.Single, [], AbortSignal.timeout(TIMEOUT_MS))),
+        await failureOfAsync(() => backend.input.typeTextAsync(front.target, "q", AbortSignal.timeout(TIMEOUT_MS))),
+        await failureOfAsync(() => backend.input.pressKeyAsync(front.target, KeyName.Enter, [], AbortSignal.timeout(TIMEOUT_MS)))
+      ];
+    } finally {
+      session.addon.stopMonitor();
+    }
+
+    for (const refusal of refusals)
+      assert.deepEqual(refusal instanceof RefusalException ? [refusal.reason, refusal.isInputSent] : refusal, [RefusalReason.PhysicalInput, false]);
+    assert.deepEqual(await backend.input.readPointerAsync(AbortSignal.timeout(TIMEOUT_MS)), point);
     assert.deepEqual(await session.enterBarrierAsync(session.window, front.target), []);
     await backend.input.typeTextAsync(front.target, "q", AbortSignal.timeout(TIMEOUT_MS));
     assert.match(await session.window.takeLineAsync("text ", TIMEOUT_MS), /q$/);
