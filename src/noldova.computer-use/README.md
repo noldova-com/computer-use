@@ -48,7 +48,7 @@ A remembered grant is the base's permission center's to keep, and the app's sett
 ## Behaviour
 
 - Each tool is one action, at a risk level that sets which permission it asks for ([ARCHITECTURE.md](https://github.com/noldova-com/computer-use/blob/main/documents/ARCHITECTURE.md#4-tools-and-risk-levels)).
-- A screenshot shows only the windows of the apps granted to the conversation and covers everything else, failing closed ([ARCHITECTURE.md](https://github.com/noldova-com/computer-use/blob/main/documents/ARCHITECTURE.md#screenshots)).
+- A screenshot shows only the windows of the apps granted to the session and covers everything else, failing closed ([ARCHITECTURE.md](https://github.com/noldova-com/computer-use/blob/main/documents/ARCHITECTURE.md#screenshots)).
 - Every input method of a backend takes an `InputTarget`, and the backend contract asks each backend to check in the same call that the target window is still in front, refusing with `RefusalReason.NotForeground` otherwise ([ARCHITECTURE.md](https://github.com/noldova-com/computer-use/blob/main/documents/ARCHITECTURE.md#target-check)).
 - The person stops control from the window part's status bar item, the base's stop key or tray, or by using the pointer or keyboard while a tool sends input; each stop goes through the base, which stops every module's agent tools until the person resumes them from the base's Resume control, and a call the stop ends before its point of no return fails as `Stopped`. Switching computer use off resumes no stop, its own included: the stop stays until the person resumes it ([ARCHITECTURE.md](https://github.com/noldova-com/computer-use/blob/main/documents/ARCHITECTURE.md#stop-and-resume)).
 

@@ -59,7 +59,7 @@ export class ForegroundInput {
   }
 
   public async isReadableAsync(app: AppIdentity, context: IToolCallContext): Promise<boolean> {
-    const grant = this.record.find(context.scope, app);
+    const grant = this.record.find(context.scope, context.sessionId, app);
     if (grant === undefined)
       return false;
     const isRemembered = await this.grants.isRememberedAsync(grant, context);
@@ -181,7 +181,7 @@ export class ForegroundInput {
   }
 
   private grantOf(window: WindowInfo, context: IToolCallContext): AppGrant {
-    const grant = this.record.find(context.scope, window.app);
+    const grant = this.record.find(context.scope, context.sessionId, window.app);
     if (grant === undefined)
       throw CallFailures.of(ToolFailureCode.Refused, Resources.formatAppNotGranted(window.appName));
 

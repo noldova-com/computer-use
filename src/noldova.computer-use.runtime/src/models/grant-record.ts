@@ -19,8 +19,10 @@ export class GrantRecord {
     this.grants.set(key, { grant, sessionIds });
   }
 
-  public find(scope: string, identity: AppIdentity): AppGrant | undefined {
-    return this.grants.get(GrantRecord.keyOf(scope, identity))?.grant;
+  public find(scope: string, sessionId: string, identity: AppIdentity): AppGrant | undefined {
+    const held = this.grants.get(GrantRecord.keyOf(scope, identity));
+
+    return held?.sessionIds.has(sessionId) === true ? held.grant : undefined;
   }
 
   public removeSession(sessionId: string): void {

@@ -47,7 +47,7 @@ export class ListAppsTool implements IComputerTool {
       [Resources.publisherField]: t.publisher,
       [Resources.isRunningField]: t.isRunning,
       [Resources.tierField]: this.policy.tierOf(t)?.value ?? null,
-      [Resources.isGrantedField]: this.record.find(context.scope, t.identity) !== undefined
+      [Resources.isGrantedField]: this.record.find(context.scope, context.sessionId, t.identity) !== undefined
     }));
 
     return new ToolResult([], { [Resources.appsField]: listed });

@@ -83,7 +83,7 @@ describe("computer_type", () => {
     const cases = [
       [null, /No app's window is in front/],
       [RuntimeHarness.windowOf(RuntimeHarness.notes, true), /higher rights/],
-      [RuntimeHarness.windowOf(RuntimeHarness.files), /File Explorer isn't granted to this conversation\. Call computer_request_apps/],
+      [RuntimeHarness.windowOf(RuntimeHarness.files), /File Explorer isn't granted to this session\. Call computer_request_apps/],
       [RuntimeHarness.windowOf(RuntimeHarness.terminal), /Command Prompt is granted at the ClickOnly tier, which doesn't allow type/]
     ] as const;
 

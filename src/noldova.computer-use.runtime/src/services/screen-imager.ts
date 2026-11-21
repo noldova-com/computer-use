@@ -132,7 +132,7 @@ export class ScreenImager {
     const known = answers.get(app.id);
     if (known !== undefined)
       return known;
-    const grant = this.record.find(context.scope, app);
+    const grant = this.record.find(context.scope, context.sessionId, app);
     const isShown = grant !== undefined && await this.grants.isRememberedAsync(grant, context);
     answers.set(app.id, isShown);
 
