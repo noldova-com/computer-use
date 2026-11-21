@@ -49,7 +49,7 @@ They cover:
 ### Clocks
 
 Every timer of the code under test is set by the test: through `mock.timers`, with the code on the default import of `node:timers/promises`, or through an interval the test passes inside the package.
-The runtime harness's heartbeat interval is 600 000 ms, past every hang limit, so the real clock never decides a harness test, and after each test the harness stops control on any harness whose watch still runs, so no heartbeat deadline outlives its test; the tests of the watch's deadline pass their own interval and drive it with `mock.timers`.
+The runtime harness's heartbeat interval is 600 000 ms, past every hang limit, so the real clock never decides a harness test, and after each test the harness stops control on any harness whose watch still runs, so no heartbeat deadline outlives its test; the tests of the watch's deadline pass their own interval and drive it with `mock.timers`, except the one whose send holds the thread past the deadline, which needs the event loop's real order: it passes a 200 ms interval and holds the thread for five of them, with its beat waiting on a `MessageChannel` as a native monitor's does.
 `HangGuard`, in `tests/services/hang-guard.fixture.ts`, bounds a call over a double by the real clock, 10 s, below the unit suite's 30 s hang limit, so the guard names a stuck call before the runner's limit does; it is a hang guard only, which no test asserts on.
 A wait is on an event or a promise that the code or the double gives, and "nothing happened" is asserted once the operation has ended, its promise awaited or an ordered sentinel after it.
 
