@@ -13,6 +13,7 @@ import path from "node:path";
 
 import { JsonReader, type JsonObject } from "@noldova/context.json";
 
+import { AppLock } from "./fixtures/app-lock.ts";
 import { PlainIcons } from "./fixtures/icons/plain-icons.ts";
 import { PackedPart } from "./fixtures/packed-part.ts";
 import { TestAppLayout } from "./fixtures/test-app-layout.ts";
@@ -45,6 +46,15 @@ class FixtureAppPreparation {
     await new FixtureAppPreparation(npm, process.argv[2] === FixtureAppPreparation.LOCK_COMMAND).prepareAsync();
   }
 
+  private static formatStale(workspaces: readonly string[]): string {
+    const names = workspaces.map(t => t === "" ? "e2e/app/package.json" : `e2e/app/${t}/package.json`).join(", ");
+    return `e2e/app/package-lock.json doesn't lock what ${names} pins, so the app's install would resolve those packages afresh; run npm run test:e2e:lock, which relocks it, and commit it.`;
+  }
+
+  private static formatChanged(entries: readonly string[]): string {
+    return `Installing the module's archives changed packages that e2e/app/package-lock.json locks: ${entries.join(", ")}; run npm run test:e2e:lock, which relocks it, and commit it.`;
+  }
+
   private static formatFailure(command: readonly string[], code: number | null): string {
     return `npm ${command.join(" ")} in ${TestAppLayout.APP_FOLDER} ended with ${code === null ? "no exit code" : `exit code ${code}`}.`;
   }
@@ -60,12 +70,19 @@ class FixtureAppPreparation {
     }
     if (!existsSync(path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.LOCKFILE)))
       throw new Error(FixtureAppPreparation.NO_LOCKFILE);
+    const stale = await AppLock.staleWorkspacesAsync(TestAppLayout.TEMPLATE_FOLDER);
+    if (stale.length > 0)
+      throw new Error(FixtureAppPreparation.formatStale(stale));
+    const locked = await AppLock.readAsync(path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE));
     const parts = await Promise.all(FixtureAppPreparation.PART_FOLDERS.map(t => PackedPart.readAsync(path.join(TestAppLayout.REPOSITORY_ROOT, "src", t))));
     const template = JsonReader.parse(await readFile(path.join(TestAppLayout.TEMPLATE_FOLDER, FixtureAppPreparation.MANIFEST), "utf8"));
     const dependencies = template.readObject("dependencies").toJson();
     const archives = Object.fromEntries(parts.map(t => [t.name, t.fileSpecifier(TestAppLayout.APP_FOLDER)]));
     await this.writeManifestAsync(template.toJson(), { ...dependencies, ...archives });
     await this.runAsync(FixtureAppPreparation.INSTALL_FROM_ARCHIVES);
+    const changed = AppLock.changedEntries(locked, await AppLock.readAsync(path.join(TestAppLayout.APP_FOLDER, FixtureAppPreparation.LOCKFILE)));
+    if (changed.length > 0)
+      throw new Error(FixtureAppPreparation.formatChanged(changed));
     const module = parts.find(t => t.name === FixtureAppPreparation.MODULE_PACKAGE);
     if (module === undefined)
       throw new Error(`No part folder holds ${FixtureAppPreparation.MODULE_PACKAGE}.`);
