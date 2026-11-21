@@ -111,7 +111,7 @@ describe("The module package", () => {
     assert.deepEqual(["0.0.72", "0.3.9", "1.2.0", "12.0.4"].map(t => rangeFrom(t)), [">=0.0.72 <0.1.0", ">=0.3.9 <0.4.0", ">=1.2.0 <2.0.0", ">=12.0.4 <13.0.0"]);
   });
 
-  it("depends only on its own parts and takes Noldova Desktop's runtime and protocol packages as peers in its range, and no other, so an app's root install holds no Angular", async () => {
+  it("depends only on its own parts and takes Noldova Desktop's runtime and protocol packages as peers in its range, and no other, so an app's root install holds no Angular, its runtime part's context peers each a range from a version at or below the installed one", async () => {
     const manifest = await readJsonAsync("package.json");
     const runtime = await readJsonAsync("../noldova.computer-use.runtime/package.json");
     const core = (await readJsonAsync("module.json"))["noldovaDesktop"];
@@ -123,12 +123,17 @@ describe("The module package", () => {
     assert.equal(manifest["optionalDependencies"], undefined);
     assert.deepEqual(manifest["peerDependencies"], { "@noldova/desktop.protocol": core, "@noldova/desktop.runtime": core });
     assert.equal(manifest["peerDependenciesMeta"], undefined);
-    assert.deepEqual(runtime["peerDependencies"], {
-      "@noldova/desktop.protocol": core,
-      "@noldova/desktop.runtime": core,
-      "@noldova/context.exceptions": ">=0.0.7 <0.1.0",
-      "@noldova/context.json": ">=0.0.7 <0.1.0"
-    });
+    const peers = stringsOf(runtime, "peerDependencies");
+    const context = ["@noldova/context.exceptions", "@noldova/context.json"];
+    const floors = await Promise.all(context.map(async name => {
+      const range = peers[name] ?? "";
+      const installed = stringOf(await readJsonAsync(`../../node_modules/${name}/package.json`), "version");
+      return [name, range === rangeFrom(lowestOf(range)), compare(lowestOf(range), installed) <= 0];
+    }));
+
+    assert.deepEqual(Object.keys(peers).sort(), ["@noldova/desktop.protocol", "@noldova/desktop.runtime", ...context].sort());
+    assert.deepEqual([peers["@noldova/desktop.protocol"], peers["@noldova/desktop.runtime"]], [core, core]);
+    assert.deepEqual(floors, context.map(name => [name, true, true]));
   });
 
   for (const file of ["package.json", "../noldova.computer-use.protocol/package.json", "../noldova.computer-use.runtime/package.json", "../noldova.computer-use.window/package.json"])
