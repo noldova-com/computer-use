@@ -262,6 +262,23 @@ describe("control", () => {
     assert.deepEqual(harness.context.published(statusEvent), [controlling, { state: "Controlling", sessionId: "session-2" }, controlling, idle]);
   });
 
+  it("names a session that acts again as the latest, so its end goes back to the other session", async () => {
+    const harness = await RuntimeHarness.startAsync();
+    await harness.grantAppAsync(RuntimeHarness.notes);
+    const next = harness.callAsync("computer_list_displays", {}, undefined, RuntimeHarness.scope, "session-2");
+    await harness.answerAsync("computer-use.controlScreen", PermissionOption.AllowOnce);
+    await next;
+    await harness.callAsync("computer_list_displays", {});
+
+    harness.endSession(RuntimeHarness.sessionId);
+    assert.deepEqual(harness.context.listedWork(), ["An agent controls the screen"]);
+    harness.endSession("session-2");
+
+    const second = { state: "Controlling", sessionId: "session-2" };
+    assert.deepEqual(harness.context.listedWork(), []);
+    assert.deepEqual(harness.context.published(statusEvent), [controlling, second, controlling, second, idle]);
+  });
+
   it("keeps the latest session in control when an earlier one of the conversation ends", async () => {
     const harness = await RuntimeHarness.startAsync();
     await harness.grantAppAsync(RuntimeHarness.notes);
