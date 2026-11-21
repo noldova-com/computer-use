@@ -8,6 +8,8 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { TimerOptions } from "node:timers";
+import timers from "node:timers/promises";
 import { MessageChannel } from "node:worker_threads";
 
 import { PhysicalInputKind } from "@noldova/computer-use.runtime";
@@ -202,6 +204,8 @@ describe("the watch for the person", () => {
     t.mock.timers.tick(deadlineMs - 1);
     harness.monitor.beat();
     t.mock.timers.tick(deadlineMs - 1);
+    await timers.setImmediate();
+    await timers.setImmediate();
     assert.deepEqual(harness.context.published(statusEvent), [controlling]);
     t.mock.timers.tick(1);
     await ended;
@@ -210,6 +214,31 @@ describe("the watch for the person", () => {
     await failed;
     await harness.tools.idleAsync();
     assert.equal(harness.monitor.isRunning, false);
+    assert.deepEqual(harness.context.published(statusEvent), [controlling, stopped]);
+  });
+
+  it("holds the event loop for the turn that stops control after the deadline, so the loop doesn't wait on input or output first", async t => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const harness = await beatingAsync();
+    const { call, ended, release } = await holdInputAsync(harness);
+    const failed = RuntimeHarness.assertFailsAsync(call, ToolFailureCode.OutcomeUncertain, /^The call ended \(Stopped\) after some input may have been sent, so the outcome is uncertain\. Call computer_screenshot before acting again\.$/);
+    const immediates = (): number => process.getActiveResourcesInfo().filter(u => u === "Immediate").length;
+    const setImmediateAsync = timers.setImmediate;
+    const held: number[] = [];
+    t.mock.method(timers, "setImmediate", async <T>(value?: T, options?: TimerOptions): Promise<T> => {
+      const before = immediates();
+      const turn = setImmediateAsync(value, options);
+      held.push(immediates() - before);
+
+      return await turn;
+    });
+
+    t.mock.timers.tick(deadlineMs);
+    await ended;
+    release();
+
+    await failed;
+    assert.deepEqual(held, [1]);
     assert.deepEqual(harness.context.published(statusEvent), [controlling, stopped]);
   });
 
