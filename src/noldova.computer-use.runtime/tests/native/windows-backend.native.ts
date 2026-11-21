@@ -17,7 +17,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 
 import { AppIdentity, BorderFrame, ClickCount, type ControlInfo, ControlRole, ControlState, DesktopPoint, KeyName, ModifierKey, PointerButton, RefusalException, RefusalReason, type StackedWindow, WindowImage, type WindowInfo } from "@noldova/computer-use.runtime";
-import { type IWindowsStackedWindowJson, WindowsBackend } from "@noldova/computer-use.runtime/windows";
+import { type IWindowsOutcomeJson, type IWindowsStackedWindowJson, WindowsBackend } from "@noldova/computer-use.runtime/windows";
 
 import { PngImage } from "../services/png-image.fixture.ts";
 
@@ -107,6 +107,16 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
 
     return () => {
       mark.call(addon);
+    };
+  }
+
+  function nowSeamOf(addon: unknown): () => void {
+    assert.ok(typeof addon === "object" && addon !== null && "personInputNow" in addon, "The addon has no person-input-now seam.");
+    const count = addon.personInputNow;
+    assert.ok(typeof count === "function", "The addon's person-input-now seam isn't a function.");
+
+    return () => {
+      count.call(addon);
     };
   }
 
@@ -263,10 +273,10 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     const stop = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
     Atomics.store(stop, 0, 1);
 
-    assert.deepEqual(await session.addon.drag(target, from.x, from.y, to.x, to.y, steps, "Left", [], stop), { status: "stopped", inputSent: false });
+    assert.deepEqual(await session.addon.drag(target, from.x, from.y, to.x, to.y, steps, "Left", [], stop, session.addon.readPhysicalCount()), { status: "stopped", inputSent: false });
     assert.deepEqual(await backend.input.readPointerAsync(AbortSignal.timeout(TIMEOUT_MS)), from);
     assert.equal(WindowsDesktopSession.readButtons(), "None");
-    assert.throws(() => session.addon.drag(target, from.x, from.y, to.x, to.y, steps, "Left", [], new Int32Array(1)), { name: "TypeError" });
+    assert.throws(() => session.addon.drag(target, from.x, from.y, to.x, to.y, steps, "Left", [], new Int32Array(1), session.addon.readPhysicalCount()), { name: "TypeError" });
     const lines = await session.enterBarrierAsync(session.window, front.target);
     assert.deepEqual(lines.filter(u => u.startsWith("drag ")), []);
   });
@@ -344,7 +354,7 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.target.app.id };
 
     for (const [deltaX, deltaY] of [[MAX_SCROLL_NOTCHES + 1, 0], [0, MAX_SCROLL_NOTCHES + 1], [-MAX_SCROLL_NOTCHES - 1, 0], [0, -MAX_SCROLL_NOTCHES - 1]])
-      assert.throws(() => session.addon.scroll(target, point.x, point.y, deltaX ?? 0, deltaY ?? 0, []), { name: "RangeError", code: "ERR_WINDOWS_DESKTOP", message: "The scroll is more than 50 notches along an axis." });
+      assert.throws(() => session.addon.scroll(target, point.x, point.y, deltaX ?? 0, deltaY ?? 0, [], session.addon.readPhysicalCount()), { name: "RangeError", code: "ERR_WINDOWS_DESKTOP", message: "The scroll is more than 50 notches along an axis." });
     const lines = await session.enterBarrierAsync(session.window, front.target);
     assert.deepEqual(lines.filter(u => u.startsWith("wheel ")), []);
   });
@@ -651,10 +661,44 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
     assert.equal(await session.window.takeLineAsync("box focused ", TIMEOUT_MS), "box focused True");
 
     markPersonInput();
-    assert.throws(() => session.addon.scroll(target, point.x, point.y, MAX_SCROLL_NOTCHES + 1, 0, []), { name: "RangeError" });
+    assert.throws(() => session.addon.pressKey(target, "NoSuchKey", [], FOCUS_MS), { name: "RangeError" });
     await backend.input.typeTextAsync(front.target, "q", AbortSignal.timeout(TIMEOUT_MS));
+    markPersonInput();
+    assert.throws(() => session.addon.scroll(target, point.x, point.y, MAX_SCROLL_NOTCHES + 1, 0, [], session.addon.readPhysicalCount()), { name: "RangeError" });
+    await backend.input.typeTextAsync(front.target, "r", AbortSignal.timeout(TIMEOUT_MS));
 
     assert.match(await session.window.takeLineAsync("text ", TIMEOUT_MS), /q$/);
+    assert.match(await session.window.takeLineAsync("text ", TIMEOUT_MS), /qr$/);
+  });
+
+  it("refuses a click, a scroll, a move and a drag as the person's input, with nothing sent, when the person's input comes between the action's glide and its input", async () => {
+    const countPersonInput = nowSeamOf(createRequire(import.meta.url)(WindowsBackend.addonFile));
+    const front = await session.frontAsync();
+    const { point } = await session.findMarkerAsync();
+    const start = new DesktopPoint(point.x - 60, point.y - 40);
+    const to = new DesktopPoint(point.x + 60, point.y + 40);
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.target.app.id };
+    const sends: readonly ((counted: number) => IWindowsOutcomeJson | Promise<IWindowsOutcomeJson>)[] = [
+      counted => session.addon.click(target, point.x, point.y, "Left", 1, [], counted),
+      counted => session.addon.scroll(target, point.x, point.y, 0, 1, [], counted),
+      counted => session.addon.movePointer(target, point.x, point.y, counted),
+      async counted => await session.addon.drag(target, point.x, point.y, to.x, to.y, [{ x: to.x, y: to.y, atMs: 0 }], "Left", [], new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)), counted)
+    ];
+    const outcomes: unknown[] = [];
+
+    for (const send of sends) {
+      await backend.input.movePointerAsync(front.target, start, AbortSignal.timeout(TIMEOUT_MS));
+      const counted = session.addon.readPhysicalCount();
+      assert.deepEqual(await session.addon.glidePointer(target, [{ x: point.x, y: point.y, atMs: 0 }], [point], counted), { status: "done" });
+      countPersonInput();
+      outcomes.push(await send(counted));
+    }
+
+    assert.deepEqual(outcomes, sends.map(() => ({ status: "refused", reason: "PhysicalInput", inputSent: false })));
+    assert.deepEqual(await backend.input.readPointerAsync(AbortSignal.timeout(TIMEOUT_MS)), point);
+    assert.equal(WindowsDesktopSession.readButtons(), "None");
+    const lines = await session.enterBarrierAsync(session.window, front.target);
+    assert.deepEqual(lines.filter(u => /^(click|wheel|drag) /u.test(u)), []);
   });
 
   it("releases the Enter or the Tab a typed text's partial send pressed, and reports how much of it Windows inserted", async () => {

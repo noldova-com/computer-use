@@ -271,14 +271,36 @@ export interface IWindowsDesktopApi {
   readPointer(): IWindowsPointJson;
 
   /**
+   * Reads how many of the person's inputs the input hook has counted, as a pointer action begins: its glide and its input then
+   * compare the count with this one, so the person's input at any moment of the action refuses the rest of it.
+   *
+   * @returns The count, which only the comparison gives meaning to.
+   * @throws {AddonLoadException} Throws on the first call when the addon can't be loaded.
+   *
+   * @example
+   * ```ts
+   * import type { IWindowsDesktopApi, IWindowsTargetJson } from "@noldova/computer-use.runtime/windows";
+   *
+   * declare const api: IWindowsDesktopApi;
+   * declare const target: IWindowsTargetJson;
+   * const physicalBefore = api.readPhysicalCount();
+   * await api.glidePointer(target, [{ x: 400, y: 300, atMs: 16 }], [{ x: 400, y: 300 }], physicalBefore);
+   * console.log(api.click(target, 400, 300, "Left", 1, [], physicalBefore).status);
+   * ```
+   */
+  readPhysicalCount(): number;
+
+  /**
    * Glides the pointer along a path's steps, each at its time, off the JavaScript thread, so the person can follow where the next input
    * goes. Before each step it checks the target and the input's points as the input does, and that the person's own input hasn't
-   * arrived since the call; a failed check stops the glide, with no input sent, since its moves only show the way. A step whose time
+   * arrived since the pointer action began; a failed check stops the glide, with no input sent, since its moves only show the way. A step whose time
    * has passed gives way to the latest one due.
    *
    * @param target The window the input is meant for.
    * @param steps The glide's steps in time order, at most 64, each due at most 1,000 ms after the call.
    * @param points The input's points, one or two, which must lie inside the target's window and be uncovered; the steps need not.
+   * @param physicalBefore The person's input count, from {@link IWindowsDesktopApi.readPhysicalCount}, read as the pointer action began:
+   *   the call refuses as `PhysicalInput`, with nothing sent, once the person's input has changed it.
    * @returns Settles once the pointer is at the last step, or a check stopped it.
    * @throws {TypeError} Throws, without gliding, when the target's `windowId` isn't a decimal window handle, or the steps or points aren't lists.
    * @throws {RangeError} Throws, without gliding, when there are too many steps or points, or the steps aren't in time order.
@@ -291,11 +313,11 @@ export interface IWindowsDesktopApi {
    *
    * declare const api: IWindowsDesktopApi;
    * declare const target: IWindowsTargetJson;
-   * const outcome = await api.glidePointer(target, [{ x: 350, y: 300, atMs: 16 }, { x: 400, y: 300, atMs: 32 }], [{ x: 400, y: 300 }]);
+   * const outcome = await api.glidePointer(target, [{ x: 350, y: 300, atMs: 16 }, { x: 400, y: 300, atMs: 32 }], [{ x: 400, y: 300 }], api.readPhysicalCount());
    * console.log(outcome.status);
    * ```
    */
-  glidePointer(target: IWindowsTargetJson, steps: readonly IWindowsGlideStepJson[], points: readonly IWindowsPointJson[]): Promise<IWindowsOutcomeJson>;
+  glidePointer(target: IWindowsTargetJson, steps: readonly IWindowsGlideStepJson[], points: readonly IWindowsPointJson[], physicalBefore: number): Promise<IWindowsOutcomeJson>;
 
   /**
    * Moves the pointer to a point of the target's window.
@@ -303,6 +325,8 @@ export interface IWindowsDesktopApi {
    * @param target The window the input is meant for.
    * @param x The point's horizontal position, in desktop coordinates.
    * @param y The point's vertical position, in desktop coordinates.
+   * @param physicalBefore The person's input count, from {@link IWindowsDesktopApi.readPhysicalCount}, read as the pointer action began:
+   *   the call refuses as `PhysicalInput`, with nothing sent, once the person's input has changed it.
    * @returns Whether the input was sent, or why it was refused.
    * @throws {TypeError} Throws when the target's `windowId` isn't a decimal window handle.
    * @throws {Error} Throws when Windows inserts only part of the input; the addon then releases what it pressed.
@@ -314,10 +338,10 @@ export interface IWindowsDesktopApi {
    *
    * declare const api: IWindowsDesktopApi;
    * declare const target: IWindowsTargetJson;
-   * console.log(api.movePointer(target, 400, 300).status);
+   * console.log(api.movePointer(target, 400, 300, api.readPhysicalCount()).status);
    * ```
    */
-  movePointer(target: IWindowsTargetJson, x: number, y: number): IWindowsOutcomeJson;
+  movePointer(target: IWindowsTargetJson, x: number, y: number, physicalBefore: number): IWindowsOutcomeJson;
 
   /**
    * Clicks a point of the target's window with a button, a number of times, holding the modifiers.
@@ -328,6 +352,8 @@ export interface IWindowsDesktopApi {
    * @param button `"Left"`, `"Right"` or `"Middle"`.
    * @param count 1, 2 or 3.
    * @param modifiers Each of `"Shift"`, `"Control"`, `"Alt"` and `"Meta"` at most once, pressed in this order and released in reverse.
+   * @param physicalBefore The person's input count, from {@link IWindowsDesktopApi.readPhysicalCount}, read as the pointer action began:
+   *   the call refuses as `PhysicalInput`, with nothing sent, once the person's input has changed it.
    * @returns Whether the input was sent, or why it was refused.
    * @throws {TypeError} Throws when the target's `windowId` isn't a decimal window handle, or the modifiers aren't a list.
    * @throws {RangeError} Throws when the button, the count or a modifier isn't one of those named.
@@ -340,11 +366,11 @@ export interface IWindowsDesktopApi {
    *
    * declare const api: IWindowsDesktopApi;
    * declare const target: IWindowsTargetJson;
-   * const outcome = api.click(target, 400, 300, "Left", 2, ["Control"]);
+   * const outcome = api.click(target, 400, 300, "Left", 2, ["Control"], api.readPhysicalCount());
    * console.log(outcome.status === "refused" ? outcome.reason : "clicked");
    * ```
    */
-  click(target: IWindowsTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[]): IWindowsOutcomeJson;
+  click(target: IWindowsTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[], physicalBefore: number): IWindowsOutcomeJson;
 
   /**
    * Presses a button at one point of the target's window, glides to another along the steps and releases it there, holding the
@@ -361,6 +387,8 @@ export interface IWindowsDesktopApi {
    * @param modifiers Each of `"Shift"`, `"Control"`, `"Alt"` and `"Meta"` at most once, pressed in this order and released in reverse.
    * @param stop A one-element `Int32Array` over a `SharedArrayBuffer`: setting its element to a value other than 0 stops the drag
    *   before its next step, releasing the button and the modifiers where the pointer is, and the drag settles as `"stopped"`.
+   * @param physicalBefore The person's input count, from {@link IWindowsDesktopApi.readPhysicalCount}, read as the pointer action began:
+   *   the call refuses as `PhysicalInput`, with nothing sent, once the person's input has changed it.
    * @returns Settles with whether the input was sent, why it was refused, or that its stop ended it.
    * @throws {TypeError} Throws when the target's `windowId` isn't a decimal window handle, the steps or modifiers aren't lists, or
    *   the stop isn't an `Int32Array`.
@@ -375,10 +403,10 @@ export interface IWindowsDesktopApi {
    * declare const api: IWindowsDesktopApi;
    * declare const target: IWindowsTargetJson;
    * const stop = new Int32Array(new SharedArrayBuffer(4));
-   * console.log((await api.drag(target, 100, 100, 300, 200, [{ x: 250, y: 175, atMs: 16 }, { x: 300, y: 200, atMs: 32 }], "Left", [], stop)).status);
+   * console.log((await api.drag(target, 100, 100, 300, 200, [{ x: 250, y: 175, atMs: 16 }, { x: 300, y: 200, atMs: 32 }], "Left", [], stop, api.readPhysicalCount())).status);
    * ```
    */
-  drag(target: IWindowsTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IWindowsGlideStepJson[], button: string, modifiers: readonly string[], stop: Int32Array): Promise<IWindowsOutcomeJson>;
+  drag(target: IWindowsTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IWindowsGlideStepJson[], button: string, modifiers: readonly string[], stop: Int32Array, physicalBefore: number): Promise<IWindowsOutcomeJson>;
 
   /**
    * Scrolls the wheel at a point of the target's window by whole notches, holding the modifiers.
@@ -389,6 +417,8 @@ export interface IWindowsDesktopApi {
    * @param deltaX Notches to the right, or to the left when negative; 0 for none.
    * @param deltaY Notches down, or up when negative; 0 for none.
    * @param modifiers Each of `"Shift"`, `"Control"`, `"Alt"` and `"Meta"` at most once, pressed in this order and released in reverse.
+   * @param physicalBefore The person's input count, from {@link IWindowsDesktopApi.readPhysicalCount}, read as the pointer action began:
+   *   the call refuses as `PhysicalInput`, with nothing sent, once the person's input has changed it.
    * @returns Whether the input was sent, or why it was refused.
    * @throws {TypeError} Throws when the target's `windowId` isn't a decimal window handle, or the modifiers aren't a list.
    * @throws {RangeError} Throws when a modifier isn't one of those named.
@@ -401,10 +431,10 @@ export interface IWindowsDesktopApi {
    *
    * declare const api: IWindowsDesktopApi;
    * declare const target: IWindowsTargetJson;
-   * console.log(api.scroll(target, 400, 300, 0, 3, []).status);
+   * console.log(api.scroll(target, 400, 300, 0, 3, [], api.readPhysicalCount()).status);
    * ```
    */
-  scroll(target: IWindowsTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[]): IWindowsOutcomeJson;
+  scroll(target: IWindowsTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[], physicalBefore: number): IWindowsOutcomeJson;
 
   /**
    * Types one chunk of text into the target's focused field, as text rather than key presses; a line break, a line feed, a carriage

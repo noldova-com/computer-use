@@ -61,7 +61,7 @@
 #define MAX_CAPTURE_TIMEOUT_MS 60000
 #define DRAWING_SLOTS 64
 #define MAX_TEXT_UNITS 256
-#define MAX_ARGUMENTS 9
+#define MAX_ARGUMENTS 10
 #define MAX_GLIDE_STEPS 64
 #define MAX_GLIDE_MS 1000
 #define MAX_INPUT_POINTS 2
@@ -652,9 +652,38 @@ static const char *check_after_send(const target_window *target, LONG physical_b
   return NULL;
 }
 
-static LONG read_physical_count_at_call(void) {
+static void take_send_limit(void) {
   send_limit = InterlockedExchange(&partial_next_send, SEND_LIMIT_NONE);
+}
+
+static LONG read_physical_count_marked(void) {
   return read_physical_count() - InterlockedExchange(&is_person_input_before_next_send, 0);
+}
+
+static LONG read_physical_count_at_call(void) {
+  take_send_limit();
+  return read_physical_count_marked();
+}
+
+static napi_value read_physical_before(napi_env env, napi_value value, LONG *before) {
+  int32_t count = 0;
+  CHECK(env, napi_get_value_int32(env, value, &count));
+  *before = (LONG)count;
+  return value;
+}
+
+static napi_value read_physical_count_export(napi_env env, napi_callback_info info) {
+  napi_value result;
+  (void)info;
+  CHECK(env, napi_create_int32(env, (int32_t)read_physical_count_marked(), &result));
+  return result;
+}
+
+static napi_value person_input_now(napi_env env, napi_callback_info info) {
+  (void)env;
+  (void)info;
+  InterlockedIncrement(&physical_count);
+  return NULL;
 }
 
 static napi_value person_input_before_next_send(napi_env env, napi_callback_info info) {
@@ -1094,15 +1123,16 @@ static napi_value read_pointer(napi_env env, napi_callback_info info) {
 }
 
 static napi_value glide_pointer(napi_env env, napi_callback_info info) {
-  napi_value arguments[3];
+  napi_value arguments[4];
   pointer_job *job = (pointer_job *)calloc(1, sizeof(pointer_job));
   if (job == NULL) {
     napi_throw_error(env, ERROR_CODE, "The glide's memory couldn't be allocated.");
     return NULL;
   }
-  job->physical_before = read_physical_count_at_call();
-  if (read_arguments(env, info, 3, arguments) == NULL || read_target(env, arguments[0], &job->target) == NULL
-      || read_steps(env, arguments[1], &job->steps, &job->step_count) == NULL || read_points(env, arguments[2], job->points, &job->point_count) == NULL) {
+  take_send_limit();
+  if (read_arguments(env, info, 4, arguments) == NULL || read_target(env, arguments[0], &job->target) == NULL
+      || read_steps(env, arguments[1], &job->steps, &job->step_count) == NULL || read_points(env, arguments[2], job->points, &job->point_count) == NULL
+      || read_physical_before(env, arguments[3], &job->physical_before) == NULL) {
     free_pointer_job(env, job);
     return NULL;
   }
@@ -1110,15 +1140,17 @@ static napi_value glide_pointer(napi_env env, napi_callback_info info) {
 }
 
 static napi_value move_pointer(napi_env env, napi_callback_info info) {
-  napi_value arguments[3];
+  napi_value arguments[4];
   target_window target;
   POINT at;
   input_batch batch;
   napi_value outcome;
-  LONG physical_before = read_physical_count_at_call();
+  LONG physical_before = 0;
   DPI_AWARENESS_CONTEXT previous;
   batch.items = NULL;
-  if (read_arguments(env, info, 3, arguments) == NULL || read_target(env, arguments[0], &target) == NULL || read_point(env, arguments[1], arguments[2], &at) == NULL)
+  take_send_limit();
+  if (read_arguments(env, info, 4, arguments) == NULL || read_target(env, arguments[0], &target) == NULL || read_point(env, arguments[1], arguments[2], &at) == NULL
+      || read_physical_before(env, arguments[3], &physical_before) == NULL)
     return NULL;
   previous = enter_physical_pixels();
   outcome = refuse_or_open(env, check_target(&target, &at, 1, 0), &batch, 1);
@@ -1132,7 +1164,7 @@ static napi_value move_pointer(napi_env env, napi_callback_info info) {
 }
 
 static napi_value click(napi_env env, napi_callback_info info) {
-  napi_value arguments[6];
+  napi_value arguments[7];
   target_window target;
   POINT at;
   uint32_t count = 0;
@@ -1142,12 +1174,14 @@ static napi_value click(napi_env env, napi_callback_info info) {
   uint32_t index;
   input_batch batch;
   napi_value outcome;
-  LONG physical_before = read_physical_count_at_call();
+  LONG physical_before = 0;
   DPI_AWARENESS_CONTEXT previous;
   batch.items = NULL;
-  if (read_arguments(env, info, 6, arguments) == NULL || read_target(env, arguments[0], &target) == NULL || read_point(env, arguments[1], arguments[2], &at) == NULL)
+  take_send_limit();
+  if (read_arguments(env, info, 7, arguments) == NULL || read_target(env, arguments[0], &target) == NULL || read_point(env, arguments[1], arguments[2], &at) == NULL)
     return NULL;
-  if (read_button(env, arguments[3], &down, &up) == NULL || read_modifiers(env, arguments[5], &modifiers) == NULL)
+  if (read_button(env, arguments[3], &down, &up) == NULL || read_modifiers(env, arguments[5], &modifiers) == NULL
+      || read_physical_before(env, arguments[6], &physical_before) == NULL)
     return NULL;
   CHECK(env, napi_get_value_uint32(env, arguments[4], &count));
   if (count < 1 || count > 3) {
@@ -1172,7 +1206,7 @@ static napi_value click(napi_env env, napi_callback_info info) {
 }
 
 static napi_value drag(napi_env env, napi_callback_info info) {
-  napi_value arguments[9];
+  napi_value arguments[10];
   pointer_job *job = (pointer_job *)calloc(1, sizeof(pointer_job));
   if (job == NULL) {
     napi_throw_error(env, ERROR_CODE, "The drag's memory couldn't be allocated.");
@@ -1180,12 +1214,12 @@ static napi_value drag(napi_env env, napi_callback_info info) {
   }
   job->is_drag = TRUE;
   job->point_count = 2;
-  job->physical_before = read_physical_count_at_call();
-  if (read_arguments(env, info, 9, arguments) == NULL || read_target(env, arguments[0], &job->target) == NULL
+  take_send_limit();
+  if (read_arguments(env, info, 10, arguments) == NULL || read_target(env, arguments[0], &job->target) == NULL
       || read_point(env, arguments[1], arguments[2], &job->points[0]) == NULL || read_point(env, arguments[3], arguments[4], &job->points[1]) == NULL
       || read_steps(env, arguments[5], &job->steps, &job->step_count) == NULL
       || read_button(env, arguments[6], &job->down, &job->up) == NULL || read_modifiers(env, arguments[7], &job->modifiers) == NULL
-      || read_stop(env, arguments[8], job) == NULL) {
+      || read_stop(env, arguments[8], job) == NULL || read_physical_before(env, arguments[9], &job->physical_before) == NULL) {
     free_pointer_job(env, job);
     return NULL;
   }
@@ -1193,7 +1227,7 @@ static napi_value drag(napi_env env, napi_callback_info info) {
 }
 
 static napi_value scroll(napi_env env, napi_callback_info info) {
-  napi_value arguments[6];
+  napi_value arguments[7];
   target_window target;
   POINT at;
   int32_t delta_x = 0;
@@ -1201,10 +1235,12 @@ static napi_value scroll(napi_env env, napi_callback_info info) {
   modifier_list modifiers;
   input_batch batch;
   napi_value outcome;
-  LONG physical_before = read_physical_count_at_call();
+  LONG physical_before = 0;
   DPI_AWARENESS_CONTEXT previous;
   batch.items = NULL;
-  if (read_arguments(env, info, 6, arguments) == NULL || read_target(env, arguments[0], &target) == NULL || read_point(env, arguments[1], arguments[2], &at) == NULL)
+  take_send_limit();
+  if (read_arguments(env, info, 7, arguments) == NULL || read_target(env, arguments[0], &target) == NULL || read_point(env, arguments[1], arguments[2], &at) == NULL
+      || read_physical_before(env, arguments[6], &physical_before) == NULL)
     return NULL;
   CHECK(env, napi_get_value_int32(env, arguments[3], &delta_x));
   CHECK(env, napi_get_value_int32(env, arguments[4], &delta_y));
@@ -3528,7 +3564,9 @@ NAPI_MODULE_INIT() {
     { "readControls", NULL, read_controls, NULL, NULL, NULL, napi_enumerable, NULL },
     { "findControl", NULL, find_control, NULL, NULL, NULL, napi_enumerable, NULL },
     { "hitsControl", NULL, hits_control, NULL, NULL, NULL, napi_enumerable, NULL },
+    { "readPhysicalCount", NULL, read_physical_count_export, NULL, NULL, NULL, napi_enumerable, NULL },
     { "personInputBeforeNextSend", NULL, person_input_before_next_send, NULL, NULL, NULL, napi_enumerable, NULL },
+    { "personInputNow", NULL, person_input_now, NULL, NULL, NULL, napi_enumerable, NULL },
     { "partialNextSend", NULL, partial_next_send_export, NULL, NULL, NULL, napi_enumerable, NULL }
   };
   if (napi_define_properties(env, exports, sizeof properties / sizeof properties[0], properties) != napi_ok

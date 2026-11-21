@@ -26,11 +26,12 @@ export interface IWindowsDesktopApi {
   getForegroundWindow(): IWindowsWindowJson | null;
   listWindows(): IWindowsWindowListJson;
   readPointer(): IWindowsPointJson;
-  glidePointer(target: IWindowsTargetJson, steps: readonly IWindowsGlideStepJson[], points: readonly IWindowsPointJson[]): Promise<IWindowsOutcomeJson>;
-  movePointer(target: IWindowsTargetJson, x: number, y: number): IWindowsOutcomeJson;
-  click(target: IWindowsTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[]): IWindowsOutcomeJson;
-  drag(target: IWindowsTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IWindowsGlideStepJson[], button: string, modifiers: readonly string[], stop: Int32Array): Promise<IWindowsOutcomeJson>;
-  scroll(target: IWindowsTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[]): IWindowsOutcomeJson;
+  readPhysicalCount(): number;
+  glidePointer(target: IWindowsTargetJson, steps: readonly IWindowsGlideStepJson[], points: readonly IWindowsPointJson[], physicalBefore: number): Promise<IWindowsOutcomeJson>;
+  movePointer(target: IWindowsTargetJson, x: number, y: number, physicalBefore: number): IWindowsOutcomeJson;
+  click(target: IWindowsTargetJson, x: number, y: number, button: string, count: number, modifiers: readonly string[], physicalBefore: number): IWindowsOutcomeJson;
+  drag(target: IWindowsTargetJson, fromX: number, fromY: number, toX: number, toY: number, steps: readonly IWindowsGlideStepJson[], button: string, modifiers: readonly string[], stop: Int32Array, physicalBefore: number): Promise<IWindowsOutcomeJson>;
+  scroll(target: IWindowsTargetJson, x: number, y: number, deltaX: number, deltaY: number, modifiers: readonly string[], physicalBefore: number): IWindowsOutcomeJson;
   typeText(target: IWindowsTargetJson, text: string, focusMs: number): IWindowsOutcomeJson;
   pressKey(target: IWindowsTargetJson, key: string, modifiers: readonly string[], focusMs: number): IWindowsOutcomeJson;
   startMonitor(onPhysicalInput: (kind: number, processId: number) => void, onHeartbeat: (sequence: number) => void, intervalMs: number): void;

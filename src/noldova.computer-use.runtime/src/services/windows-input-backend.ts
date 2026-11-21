@@ -59,20 +59,23 @@ export class WindowsInputBackend implements IInputBackend {
   }
 
   public async movePointerAsync(target: InputTarget, to: DesktopPoint, signal: AbortSignal): Promise<void> {
-    await this.glidePointerAsync(target, to, [to], signal);
+    const physicalBefore = this.readPhysicalCountAt(signal);
+    await this.glideAsync(target, to, [to], physicalBefore, signal);
     signal.throwIfAborted();
-    WindowsInputBackend.settle(this.api.movePointer(WindowsInputBackend.toTarget(target), to.x, to.y));
+    WindowsInputBackend.settle(this.api.movePointer(WindowsInputBackend.toTarget(target), to.x, to.y, physicalBefore));
   }
 
   public async clickAsync(target: InputTarget, at: DesktopPoint, button: PointerButton, count: ClickCount, modifiers: readonly ModifierKey[], signal: AbortSignal): Promise<void> {
-    await this.glidePointerAsync(target, at, [at], signal);
+    const physicalBefore = this.readPhysicalCountAt(signal);
+    await this.glideAsync(target, at, [at], physicalBefore, signal);
     signal.throwIfAborted();
-    const outcome = this.api.click(WindowsInputBackend.toTarget(target), at.x, at.y, button.value, count.count, modifiers.map(t => t.value));
+    const outcome = this.api.click(WindowsInputBackend.toTarget(target), at.x, at.y, button.value, count.count, modifiers.map(t => t.value), physicalBefore);
     WindowsInputBackend.settle(outcome);
   }
 
   public async dragAsync(target: InputTarget, from: DesktopPoint, to: DesktopPoint, button: PointerButton, modifiers: readonly ModifierKey[], signal: AbortSignal): Promise<void> {
-    await this.glidePointerAsync(target, from, [from, to], signal);
+    const physicalBefore = this.readPhysicalCountAt(signal);
+    await this.glideAsync(target, from, [from, to], physicalBefore, signal);
     signal.throwIfAborted();
     const steps = WindowsInputBackend.toSteps(GlidePath.between(from, to));
     const stop = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
@@ -82,7 +85,7 @@ export class WindowsInputBackend implements IInputBackend {
     signal.addEventListener("abort", end, { once: true });
     let outcome: IWindowsOutcomeJson;
     try {
-      outcome = await this.api.drag(WindowsInputBackend.toTarget(target), from.x, from.y, to.x, to.y, steps, button.value, modifiers.map(t => t.value), stop);
+      outcome = await this.api.drag(WindowsInputBackend.toTarget(target), from.x, from.y, to.x, to.y, steps, button.value, modifiers.map(t => t.value), stop, physicalBefore);
     } finally {
       signal.removeEventListener("abort", end);
     }
@@ -92,9 +95,10 @@ export class WindowsInputBackend implements IInputBackend {
   }
 
   public async scrollAsync(target: InputTarget, at: DesktopPoint, amount: ScrollAmount, modifiers: readonly ModifierKey[], signal: AbortSignal): Promise<void> {
-    await this.glidePointerAsync(target, at, [at], signal);
+    const physicalBefore = this.readPhysicalCountAt(signal);
+    await this.glideAsync(target, at, [at], physicalBefore, signal);
     signal.throwIfAborted();
-    WindowsInputBackend.settle(this.api.scroll(WindowsInputBackend.toTarget(target), at.x, at.y, amount.x, amount.y, modifiers.map(t => t.value)));
+    WindowsInputBackend.settle(this.api.scroll(WindowsInputBackend.toTarget(target), at.x, at.y, amount.x, amount.y, modifiers.map(t => t.value), physicalBefore));
   }
 
   public async typeTextAsync(target: InputTarget, chunk: string, signal: AbortSignal): Promise<void> {
@@ -116,6 +120,16 @@ export class WindowsInputBackend implements IInputBackend {
   }
 
   public async glidePointerAsync(target: InputTarget, to: DesktopPoint, points: readonly DesktopPoint[], signal: AbortSignal): Promise<void> {
+    await this.glideAsync(target, to, points, this.readPhysicalCountAt(signal), signal);
+  }
+
+  private readPhysicalCountAt(signal: AbortSignal): number {
+    signal.throwIfAborted();
+
+    return this.api.readPhysicalCount();
+  }
+
+  private async glideAsync(target: InputTarget, to: DesktopPoint, points: readonly DesktopPoint[], physicalBefore: number, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted();
     let from: DesktopPoint;
     try {
@@ -130,7 +144,7 @@ export class WindowsInputBackend implements IInputBackend {
     if (path.steps.length === 0)
       return;
 
-    const outcome = await this.api.glidePointer(WindowsInputBackend.toTarget(target), WindowsInputBackend.toSteps(path), points.map(t => ({ x: t.x, y: t.y })));
+    const outcome = await this.api.glidePointer(WindowsInputBackend.toTarget(target), WindowsInputBackend.toSteps(path), points.map(t => ({ x: t.x, y: t.y })), physicalBefore);
     WindowsInputBackend.settle(outcome);
   }
 

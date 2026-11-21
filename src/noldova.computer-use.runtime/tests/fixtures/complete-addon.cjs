@@ -16,6 +16,7 @@ module.exports = {
   getForegroundWindow: () => window,
   listWindows: () => ({ isComplete: true, windows: [window] }),
   readPointer: () => ({ x: 1, y: 2 }),
+  readPhysicalCount: () => 0,
   glidePointer: async () => done,
   movePointer: () => done,
   click: () => done,
