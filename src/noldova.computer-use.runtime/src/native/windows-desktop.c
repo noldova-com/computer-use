@@ -228,7 +228,10 @@ typedef struct {
   uint8_t *pixels;
 } window_capture;
 
-static volatile LONG physical_count = 0;
+static volatile LONG key_count = 0;
+static volatile LONG pointer_count = 0;
+static volatile LONG pointer_baseline = 0;
+static volatile LONG is_watching = 0;
 static volatile LONG is_person_input_before_next_send = 0;
 static volatile LONG partial_next_send = SEND_LIMIT_NONE;
 static volatile LONG next_other_find = OTHER_FIND_REAL;
@@ -378,7 +381,7 @@ static BOOL read_window(HWND window, window_facts *facts) {
 }
 
 static LONG read_physical_count(void) {
-  return InterlockedCompareExchange(&physical_count, 0, 0);
+  return InterlockedCompareExchange(&key_count, 0, 0) + InterlockedCompareExchange(&pointer_count, 0, 0);
 }
 
 static const char *check_focus(const target_window *target, DWORD focus_ms);
@@ -658,13 +661,22 @@ static const char *check_after_send(const target_window *target, LONG physical_b
 
 static LONG read_physical_count_at_call(void) {
   send_limit = InterlockedExchange(&partial_next_send, SEND_LIMIT_NONE);
-  return read_physical_count() - InterlockedExchange(&is_person_input_before_next_send, 0);
+  LONG keys = InterlockedCompareExchange(&key_count, 0, 0);
+  LONG pointer = InterlockedCompareExchange(&is_watching, 0, 0) ? InterlockedCompareExchange(&pointer_baseline, 0, 0) : InterlockedCompareExchange(&pointer_count, 0, 0);
+  return keys + pointer - InterlockedExchange(&is_person_input_before_next_send, 0);
 }
 
 static napi_value person_input_before_next_send(napi_env env, napi_callback_info info) {
   (void)env;
   (void)info;
   InterlockedExchange(&is_person_input_before_next_send, 1);
+  return NULL;
+}
+
+static napi_value person_input_now(napi_env env, napi_callback_info info) {
+  (void)env;
+  (void)info;
+  InterlockedIncrement(&pointer_count);
   return NULL;
 }
 
@@ -1762,7 +1774,7 @@ static napi_value capture_window(napi_env env, napi_callback_info info) {
 }
 
 static void flag_physical(LONG kind) {
-  InterlockedIncrement(&physical_count);
+  InterlockedIncrement(kind == PHYSICAL_POINTER ? &pointer_count : &key_count);
   AcquireSRWLockShared(&callback_lock);
   if (physical_callback != NULL && InterlockedCompareExchange(&physical_pending[kind], 1, 0) == 0
       && napi_call_threadsafe_function(physical_callback, (void *)(intptr_t)kind, napi_tsfn_nonblocking) != napi_ok)
@@ -1872,6 +1884,7 @@ static void release_callbacks(void) {
 }
 
 static BOOL end_monitor(void) {
+  InterlockedExchange(&is_watching, 0);
   if (monitor_thread == NULL)
     return TRUE;
   PostThreadMessageW(monitor_thread_id, WM_QUIT, 0, 0);
@@ -1917,6 +1930,7 @@ static napi_value start_monitor(napi_env env, napi_callback_info info) {
   heartbeat_interval = interval;
   heartbeat_sequence = 0;
   InterlockedExchange(&key_process, KEY_PROCESS_NONE);
+  InterlockedExchange(&pointer_baseline, InterlockedCompareExchange(&pointer_count, 0, 0));
   started = CreateEventW(NULL, TRUE, FALSE, NULL);
   monitor_thread = started != NULL ? CreateThread(NULL, 0, run_monitor, started, 0, &monitor_thread_id) : NULL;
   hooked = monitor_thread != NULL && WaitForSingleObject(started, MONITOR_START_TIMEOUT_MS) == WAIT_OBJECT_0 && monitor_hooked;
@@ -1927,6 +1941,7 @@ static napi_value start_monitor(napi_env env, napi_callback_info info) {
     release_callbacks();
     return throw_windows(env, "Windows couldn't install the input monitor's hooks.");
   }
+  InterlockedExchange(&is_watching, 1);
   return NULL;
 }
 
@@ -3569,6 +3584,7 @@ NAPI_MODULE_INIT() {
     { "hitsControl", NULL, hits_control, NULL, NULL, NULL, napi_enumerable, NULL },
     { "personInputBeforeNextSend", NULL, person_input_before_next_send, NULL, NULL, NULL, napi_enumerable, NULL },
     { "partialNextSend", NULL, partial_next_send_export, NULL, NULL, NULL, napi_enumerable, NULL },
+    { "personInputNow", NULL, person_input_now, NULL, NULL, NULL, napi_enumerable, NULL },
     { "timeOutNextOtherFind", NULL, time_out_next_other_find, NULL, NULL, NULL, napi_enumerable, NULL }
   };
   if (napi_define_properties(env, exports, sizeof properties / sizeof properties[0], properties) != napi_ok
