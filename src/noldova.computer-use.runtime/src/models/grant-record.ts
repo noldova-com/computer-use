@@ -10,20 +10,25 @@ import type { AppGrant } from "./app-grant.ts";
 import type { AppIdentity } from "./backend/app-identity.ts";
 
 export class GrantRecord {
-  private readonly grants: Map<string, AppGrant> = new Map();
+  private readonly grants: Map<string, { readonly grant: AppGrant; readonly sessionIds: Set<string> }> = new Map();
 
   public add(grant: AppGrant): void {
-    this.grants.set(GrantRecord.keyOf(grant.scope, grant.identity), grant);
+    const key = GrantRecord.keyOf(grant.scope, grant.identity);
+    const sessionIds = this.grants.get(key)?.sessionIds ?? new Set<string>();
+    sessionIds.add(grant.sessionId);
+    this.grants.set(key, { grant, sessionIds });
   }
 
   public find(scope: string, identity: AppIdentity): AppGrant | undefined {
-    return this.grants.get(GrantRecord.keyOf(scope, identity));
+    return this.grants.get(GrantRecord.keyOf(scope, identity))?.grant;
   }
 
   public removeSession(sessionId: string): void {
-    for (const [key, grant] of this.grants)
-      if (grant.sessionId === sessionId)
+    for (const [key, held] of this.grants) {
+      held.sessionIds.delete(sessionId);
+      if (held.sessionIds.size === 0)
         this.grants.delete(key);
+    }
   }
 
   private static keyOf(scope: string, identity: AppIdentity): string {

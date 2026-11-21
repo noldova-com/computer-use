@@ -25,6 +25,23 @@ describe("the grant record", () => {
     assert.deepEqual((await next).structured, RuntimeHarness.listingOf([]));
   });
 
+  it("keeps an app for the conversation's earlier session when a later session that also asked for it ends, and forgets it once both have ended", async () => {
+    const harness = await RuntimeHarness.startAsync();
+    await harness.grantAppAsync(RuntimeHarness.notes);
+    const asked = harness.callAsync("computer_request_apps", { apps: [RuntimeHarness.notes.identity.id], reason: "To write the note." }, undefined, RuntimeHarness.scope, "session-2");
+    await harness.answerAsync("computer-use.controlScreen", PermissionOption.AllowOnce);
+    await asked;
+
+    harness.endSession("session-2");
+    const kept = await harness.callAsync("computer_list_apps", {});
+    harness.endSession(RuntimeHarness.sessionId);
+    const next = harness.callAsync("computer_list_apps", {}, undefined, RuntimeHarness.scope, "session-3");
+    await harness.answerAsync("computer-use.controlScreen", PermissionOption.AllowOnce);
+
+    assert.deepEqual(kept.structured, RuntimeHarness.listingOf([RuntimeHarness.notes]));
+    assert.deepEqual((await next).structured, RuntimeHarness.listingOf([]));
+  });
+
   it("frees the screen for another conversation when the session ends", async () => {
     const harness = await RuntimeHarness.startAsync();
     await harness.grantAppAsync(RuntimeHarness.notes);
