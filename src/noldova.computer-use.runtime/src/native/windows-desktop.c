@@ -91,6 +91,9 @@
 #define PHYSICAL_KEYBOARD 1
 #define KEY_PROCESS_NONE (-1)
 #define SEND_LIMIT_NONE (-1)
+#define OTHER_FIND_REAL 0
+#define OTHER_FIND_TIMED_OUT 1
+#define OTHER_FIND_LATE 2
 #define KEY_PROCESS_UNKNOWN 0
 
 #define MAX_CONTROL_TEXT 402
@@ -228,6 +231,7 @@ typedef struct {
 static volatile LONG physical_count = 0;
 static volatile LONG is_person_input_before_next_send = 0;
 static volatile LONG partial_next_send = SEND_LIMIT_NONE;
+static volatile LONG next_other_find = OTHER_FIND_REAL;
 static LONG send_limit = SEND_LIMIT_NONE;
 static volatile LONG physical_pending[2] = { 0, 0 };
 static volatile LONG key_process = KEY_PROCESS_NONE;
@@ -705,6 +709,16 @@ static napi_value partial_next_send_export(napi_env env, napi_callback_info info
     return NULL;
   CHECK(env, napi_get_value_uint32(env, argument, &count));
   InterlockedExchange(&partial_next_send, (LONG)count);
+  return NULL;
+}
+
+static napi_value time_out_next_other_find(napi_env env, napi_callback_info info) {
+  napi_value argument;
+  bool is_late = false;
+  if (read_arguments(env, info, 1, &argument) == NULL)
+    return NULL;
+  CHECK(env, napi_get_value_bool(env, argument, &is_late));
+  InterlockedExchange(&next_other_find, is_late ? OTHER_FIND_LATE : OTHER_FIND_TIMED_OUT);
   return NULL;
 }
 
@@ -2559,6 +2573,7 @@ typedef struct {
   HWND focus_window;
   IUIAutomationCondition *own_children;
   IUIAutomationCondition *other_children;
+  LONG other_find;
 } control_request;
 
 typedef struct {
@@ -2873,11 +2888,26 @@ static void add_children(control_request *request, control_references *reference
   }
 }
 
+static HRESULT find_other_children(control_request *request, const control_visit *visit, IUIAutomationElementArray **others) {
+  LONG seam = request->other_find;
+  HRESULT found;
+  ULONGLONG now;
+  request->other_find = OTHER_FIND_REAL;
+  if (seam == OTHER_FIND_TIMED_OUT)
+    return UIA_E_TIMEOUT;
+  found = IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, others);
+  if (seam == OTHER_FIND_LATE)
+    while ((now = GetTickCount64()) < request->deadline)
+      Sleep((DWORD)(request->deadline - now));
+  return found;
+}
+
 static BOOL read_children(control_request *request, control_references *references, const control_visit *visit, int *visit_count) {
   IUIAutomationElementArray *children = NULL;
   IUIAutomationElementArray *others = NULL;
   int taken = 0;
   BOOL is_going = TRUE;
+  HRESULT found;
   if (!limit_to_time_left(request->deadline)) {
     request->is_timed_out = TRUE;
     return FALSE;
@@ -2889,8 +2919,15 @@ static BOOL read_children(control_request *request, control_references *referenc
     request->is_timed_out = TRUE;
     is_going = FALSE;
   }
-  if (is_going && SUCCEEDED(IUIAutomationElement_FindAllBuildCache(visit->element, TreeScope_Children, request->other_children, app_cache, &others)))
-    add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
+  if (is_going) {
+    found = find_other_children(request, visit, &others);
+    if (SUCCEEDED(found))
+      add_children(request, references, visit, visit_count, others, FALSE, &taken, &is_going);
+    if (is_going && is_timeout(found, request->deadline)) {
+      request->is_timed_out = TRUE;
+      is_going = FALSE;
+    }
+  }
   if (others != NULL)
     IUIAutomationElementArray_Release(others);
   if (children != NULL)
@@ -3464,9 +3501,11 @@ static control_request *new_control_request(napi_env env, control_kind kind) {
 static napi_value read_controls(napi_env env, napi_callback_info info) {
   napi_value arguments[3];
   napi_valuetype type;
+  LONG other_find = InterlockedExchange(&next_other_find, OTHER_FIND_REAL);
   control_request *request = new_control_request(env, CONTROL_READ);
   if (request == NULL)
     return NULL;
+  request->other_find = other_find;
   if (read_arguments(env, info, 3, arguments) == NULL || read_target(env, arguments[0], &request->target) == NULL
       || napi_typeof(env, arguments[1], &type) != napi_ok || (type != napi_null && read_handle(env, arguments[1], request) == NULL)
       || read_timeout(env, arguments[2], request) == NULL) {
@@ -3529,7 +3568,8 @@ NAPI_MODULE_INIT() {
     { "findControl", NULL, find_control, NULL, NULL, NULL, napi_enumerable, NULL },
     { "hitsControl", NULL, hits_control, NULL, NULL, NULL, napi_enumerable, NULL },
     { "personInputBeforeNextSend", NULL, person_input_before_next_send, NULL, NULL, NULL, napi_enumerable, NULL },
-    { "partialNextSend", NULL, partial_next_send_export, NULL, NULL, NULL, napi_enumerable, NULL }
+    { "partialNextSend", NULL, partial_next_send_export, NULL, NULL, NULL, napi_enumerable, NULL },
+    { "timeOutNextOtherFind", NULL, time_out_next_other_find, NULL, NULL, NULL, napi_enumerable, NULL }
   };
   if (napi_define_properties(env, exports, sizeof properties / sizeof properties[0], properties) != napi_ok
       || napi_add_env_cleanup_hook(env, end_monitor_on_exit, NULL) != napi_ok
