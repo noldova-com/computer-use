@@ -93,7 +93,7 @@ describe("computer_read_window", () => {
     harness.windows.foreground = new WindowInfo(NOTES, "Notes", "100", 42, new DesktopRect(0, 0, 8, 6), true);
     await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_read_window", {}), ToolFailureCode.Refused, /higher rights/);
     harness.windows.foreground = new WindowInfo(RuntimeHarness.terminal.identity, "Command Prompt", "100", 42, new DesktopRect(0, 0, 8, 6), false);
-    await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_read_window", {}), ToolFailureCode.Refused, /^Command Prompt isn't granted to this conversation\./);
+    await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_read_window", {}), ToolFailureCode.Refused, /^Command Prompt isn't granted to this session\./);
     assert.deepEqual(harness.backend.controls.reads, []);
   });
 
@@ -103,7 +103,7 @@ describe("computer_read_window", () => {
     for (const answer of harness.center.remembered().filter(t => t.action === "computer-use.controlApp"))
       harness.center.forget(answer);
 
-    await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_read_window", {}), ToolFailureCode.Refused, /^Notes isn't granted to this conversation\./);
+    await RuntimeHarness.assertFailsAsync(harness.callAsync("computer_read_window", {}), ToolFailureCode.Refused, /^Notes isn't granted to this session\./);
     assert.equal(harness.answerer.delivered().length, asked);
     assert.deepEqual(harness.center.records().slice(-1).map(t => [t.action, t.subject, t.isRemembered]), [["computer-use.controlApp", NOTES.id, false]]);
     assert.deepEqual(harness.backend.controls.reads, []);

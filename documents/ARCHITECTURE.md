@@ -93,6 +93,7 @@ A conversation's grants end when it ends or loses its connection.
 The center remembers a grant for the conversation's scope in its store, so the app's settings can list and revoke it.
 The module also keeps its own record of the grants given in the conversation.
 An app's grant in the record stays while any session of the conversation that asked for it runs, and goes when the last of them ends.
+A session uses only the apps it asked for itself, since Allow once holds for its session only: its screenshots, reads, inputs and app list answer from its own grants, so an app another session of the conversation asked for is masked and refused until this session asks for it, which an Allow always answers without asking.
 
 Each input action raises a request with the same action, `computer-use.controlApp`, and the target app's identity as its subject, and names the input, such as `click` or `type`, and its exact arguments in the details.
 The center answers it from the remembered grant, which matches on both the action and the subject, so every action leaves one record and the person isn't asked per click.

@@ -1051,7 +1051,7 @@ export class Resources {
   }
 
   public static formatAppNotGranted(name: string): string {
-    return `${name} isn't granted to this conversation. Call computer_request_apps for it first. Nothing was sent.`;
+    return `${name} isn't granted to this session. Call computer_request_apps for it first. Nothing was sent.`;
   }
 
   public static formatBatchEnded(ran: number, total: number, action: string, message: string): string {
