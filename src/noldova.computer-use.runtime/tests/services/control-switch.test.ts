@@ -247,6 +247,36 @@ describe("control", () => {
     assert.deepEqual(harness.context.published(statusEvent), [controlling, idle]);
   });
 
+  it("stays in control while an earlier session of the conversation can still act, following it back when the later one ends first", async () => {
+    const harness = await RuntimeHarness.startAsync();
+    await harness.grantAppAsync(RuntimeHarness.notes);
+    const next = harness.callAsync("computer_list_displays", {}, undefined, RuntimeHarness.scope, "session-2");
+    await harness.answerAsync("computer-use.controlScreen", PermissionOption.AllowOnce);
+    await next;
+
+    harness.endSession("session-2");
+    assert.deepEqual(harness.context.listedWork(), ["An agent controls the screen"]);
+    harness.endSession(RuntimeHarness.sessionId);
+
+    assert.deepEqual(harness.context.listedWork(), []);
+    assert.deepEqual(harness.context.published(statusEvent), [controlling, { state: "Controlling", sessionId: "session-2" }, controlling, idle]);
+  });
+
+  it("keeps the latest session in control when an earlier one of the conversation ends", async () => {
+    const harness = await RuntimeHarness.startAsync();
+    await harness.grantAppAsync(RuntimeHarness.notes);
+    const next = harness.callAsync("computer_list_displays", {}, undefined, RuntimeHarness.scope, "session-2");
+    await harness.answerAsync("computer-use.controlScreen", PermissionOption.AllowOnce);
+    await next;
+
+    harness.endSession(RuntimeHarness.sessionId);
+    assert.deepEqual(harness.context.listedWork(), ["An agent controls the screen"]);
+    harness.endSession("session-2");
+
+    assert.deepEqual(harness.context.listedWork(), []);
+    assert.deepEqual(harness.context.published(statusEvent), [controlling, { state: "Controlling", sessionId: "session-2" }, idle]);
+  });
+
   it("stays stopped when the session in control ends while stopped", async () => {
     const harness = await RuntimeHarness.startAsync();
     await harness.grantAppAsync(RuntimeHarness.notes);

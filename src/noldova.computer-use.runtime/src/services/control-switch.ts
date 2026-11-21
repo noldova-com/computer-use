@@ -23,7 +23,7 @@ export class ControlSwitch {
   private readonly status: EventChannel;
   private readonly watch: InputWatch;
   private current: SessionStatus = new SessionStatus(ControlState.Idle, null);
-  private holderSessionId: string | null = null;
+  private holders: readonly string[] = [];
   private isWatching: boolean = false;
   private work: WorkItem | null = null;
 
@@ -42,10 +42,11 @@ export class ControlSwitch {
   }
 
   public enter(context: IToolCallContext): void {
-    if (this.holderSessionId === context.sessionId)
+    const latest = this.holders.at(-1);
+    this.holders = [...this.holders.filter(t => t !== context.sessionId), context.sessionId];
+    if (latest === context.sessionId)
       return;
 
-    this.holderSessionId = context.sessionId;
     this.work ??= this.beginWork();
     this.publish(new SessionStatus(ControlState.Controlling, context.sessionId));
   }
@@ -65,12 +66,17 @@ export class ControlSwitch {
   }
 
   public endSession(sessionId: string): void {
-    if (this.holderSessionId !== sessionId)
+    if (!this.holders.includes(sessionId))
       return;
 
-    this.holderSessionId = null;
-    this.endWork();
-    this.publish(new SessionStatus(ControlState.Idle, null));
+    const latest = this.holders.at(-1);
+    this.holders = this.holders.filter(t => t !== sessionId);
+    const next = this.holders.at(-1);
+    if (next === undefined) {
+      this.endWork();
+      this.publish(new SessionStatus(ControlState.Idle, null));
+    } else if (latest === sessionId)
+      this.publish(new SessionStatus(ControlState.Controlling, next));
   }
 
   public stop(reason: string): void {
@@ -87,7 +93,7 @@ export class ControlSwitch {
   }
 
   private onStopped(): void {
-    this.holderSessionId = null;
+    this.holders = [];
     void this.watch.stopAsync();
     this.endWork();
     this.publish(new SessionStatus(ControlState.Stopped, null));
