@@ -16,6 +16,7 @@
     "test:e2e": "tsc -p e2e/tsconfig.json && playwright test --config e2e/playwright.config.ts",
     "test:e2e:desktop": "tsc -p e2e/tsconfig.json && playwright test --config e2e/playwright.desktop.config.ts",
     "test:e2e:grant-hosted-macos": "node e2e/grant-hosted-macos.ts",
+    "test:e2e:lock": "node e2e/prepare-app.ts lock",
     "test:e2e:prepare": "node e2e/prepare-app.ts",
     "test:timing": "node scripts/test-timing.ts"
   },
