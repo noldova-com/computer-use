@@ -497,6 +497,7 @@ Switching the module off, by its setting or as it deactivates, resumes no stop, 
 Switched on while control is stopped, the module reads the base's `context.tools.isStopped` and shows stopped from the start, sending it to a window that stayed open since it was switched off.
 
 While a session controls the screen, the module lists its control as running work in the base's tray, so the person can stop it there, and it sends the window part each change of state: idle, controlling with the session's ID, or stopped.
+Control follows every session that has acted on the screen and not ended: the status names the latest of them, an earlier one's end changes nothing, the latest one's end names the one before it, and the status goes idle, with the work item ended, only when the last of them ends; a stop forgets them all and ends the work item at once.
 It answers `computer-use.statusRead` with the state as it is now, which the window part reads as it activates and reconnects, so a window that opens during control shows the item; a change that reaches the window during that read wins over the read's answer.
 Switching the module off, by its setting or as it deactivates, sends idle before it withdraws the event, so the item hides when the module is switched off during control or a stop.
 
