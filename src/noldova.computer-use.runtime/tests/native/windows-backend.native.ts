@@ -17,7 +17,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 
 import { AppIdentity, BorderFrame, ClickCount, type ControlInfo, ControlRole, ControlState, DesktopPoint, KeyName, ModifierKey, PointerButton, RefusalException, RefusalReason, type StackedWindow, WindowImage, type WindowInfo } from "@noldova/computer-use.runtime";
-import { type IWindowsStackedWindowJson, WindowsBackend } from "@noldova/computer-use.runtime/windows";
+import { type IWindowsControlTreeJson, type IWindowsStackedWindowJson, WindowsBackend } from "@noldova/computer-use.runtime/windows";
 
 import { PngImage } from "../services/png-image.fixture.ts";
 
@@ -565,6 +565,43 @@ describe("the Windows backend on the desktop", { skip: process.platform !== "win
 
     assert.deepEqual([late.controls.length, late.timedOut], [0, true]);
     assert.deepEqual([next.controls.length, next.timedOut], [0, false]);
+  });
+
+  it("reads the 15 of the test window's own windows nearest the top of those in front of it, counting one more as left out", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const alone = await session.addon.readControls(target, null, TIMEOUT_MS);
+    session.window.send("popups 16");
+    assert.equal(await session.window.takeLineAsync("popups ", TIMEOUT_MS), "popups 16");
+    let tree: IWindowsControlTreeJson;
+    try {
+      tree = await session.addon.readControls(target, null, TIMEOUT_MS);
+    } finally {
+      session.window.send("close popups");
+      await session.window.takeLineAsync("popups closed", TIMEOUT_MS);
+    }
+
+    const popups = tree.controls.filter(t => t.name.startsWith("Popup ")).map(t => t.name);
+    const ends = [popups.includes("Popup 16"), popups.includes("Popup 1")];
+    assert.deepEqual([new Set(popups).size, ends, tree.leftOut - alone.leftOut, tree.timedOut], [15, [true, false], 1, false], popups.join(", "));
+  });
+
+  it("reads the windows the test window owns once, as its own controls, leaving none out", async () => {
+    const front = await session.frontAsync();
+    const target = { windowId: front.target.windowId, processId: front.target.processId, imagePath: front.app.id };
+    const alone = await session.addon.readControls(target, null, TIMEOUT_MS);
+    session.window.send("popups 16 owned");
+    assert.equal(await session.window.takeLineAsync("popups ", TIMEOUT_MS), "popups 16");
+    let tree: IWindowsControlTreeJson;
+    try {
+      tree = await session.addon.readControls(target, null, TIMEOUT_MS);
+    } finally {
+      session.window.send("close popups");
+      await session.window.takeLineAsync("popups closed", TIMEOUT_MS);
+    }
+
+    const popups = tree.controls.filter(t => t.name.startsWith("Popup ")).map(t => t.name);
+    assert.deepEqual([popups.length, new Set(popups).size, tree.leftOut - alone.leftOut, tree.timedOut], [16, 16, 0, false], popups.join(", "));
   });
 
   it("ends a read of the test window while its thread is held at the read's limit, leaving no UI Automation call running into the next request", async () => {
