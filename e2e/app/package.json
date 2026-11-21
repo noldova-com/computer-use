@@ -51,10 +51,10 @@
     "desktop-tools": "noldova-desktop-build desktop-tools"
   },
   "dependencies": {
-    "@noldova/context.core": "0.0.9",
-    "@noldova/context.exceptions": "0.0.9",
-    "@noldova/context.json": "0.0.9",
-    "@noldova/context.text": "0.0.9",
+    "@noldova/context.core": "0.0.10",
+    "@noldova/context.exceptions": "0.0.10",
+    "@noldova/context.json": "0.0.10",
+    "@noldova/context.text": "0.0.10",
     "@noldova/desktop.cli": "0.0.10",
     "@noldova/desktop.electron": "0.0.10",
     "@noldova/desktop.protocol": "0.0.10",
