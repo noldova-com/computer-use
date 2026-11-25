@@ -156,7 +156,7 @@ export class Resources {
   public static readonly npmUnavailable: string = "npm_execpath is not set; run this through npm, such as npm run build or npm test.";
 
   public static readonly archivesFolder: string = "_packages";
-  public static readonly packageWorkSegments: readonly string[] = ["_build", "packages"];
+  public static readonly packageWorkSegments: readonly string[] = ["_build", "node"];
   public static readonly generatedFolder: string = "generated";
   public static readonly builtFolders: readonly string[] = [Resources.jxaOutputFolder, Resources.addonOutputFolder, Resources.generatedFolder];
   public static readonly commitPattern: RegExp = /^[0-9a-f]{40}$/;
