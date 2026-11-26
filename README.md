@@ -47,8 +47,8 @@ The pull request that changes the version writes that version's section in [CHAN
 The module's packages are published together at one version to npm, by the Release workflow, `.github/workflows/release-npm.yml`, through npm's trusted publishing, so no token is stored, and a release never deletes a published version.
 
 - **It starts by hand only,** with two inputs: the version, which `version.json` and the root `package.json` hold, and the full hash of the commit on `main` to release.
-- **It calls the organization's shared npm release workflow,** `release-npm.yml` in `noldova-com/.github`, pinned to v2.34.0's commit, whose README says what each job does and with which permissions, in the `release` environment, which holds the publish approval.
-- **After the release, its dependents job** calls the organization's shared `update-dependents.yml`, v2.34.0, with the version and the commit, which proposes the version to the repositories that pin the module, as the shared workflow's README says.
+- **It calls the organization's shared npm release workflow,** `release-npm.yml` in `noldova-com/.github`, pinned to the commit of the release the other workflows pin, whose README says what each job does and with which permissions, in the `release` environment, which holds the publish approval.
+- **After the release, its dependents job** calls the organization's shared `update-dependents.yml`, at the same pin, with the version and the commit, which proposes the version to the repositories that pin the module, as the shared workflow's README says.
 
 The shared workflow reads the version from `version.json`, checks that the commit is on `main` and holds it, tags the commit, builds the addons each part declares, runs `npm ci` and `npm run build` with `RELEASE_ADDONS`, `RELEASE_VERSION`, `RELEASE_COMMIT` and `RELEASE_SCOPE` set, checks the archives in `_packages`, and publishes them, with npm's provenance.
 The repository's own release code is only the build's `check`, in `scripts/services/release.ts`.
@@ -65,7 +65,7 @@ Every pull request into `main` must pass every check below before it merges.
 | Desktop end-to-end, Windows x64 | The in-app suite, `npm run test:e2e:desktop`, passed with the module switched on, on a GitHub-hosted Windows runner's desktop session. |
 | Desktop end-to-end, macOS arm64 | The same suite passed on a GitHub-hosted macOS arm64 runner, after the job granted the test app there. |
 
-`.github/workflows/build-and-test.yml` calls the organization's shared `build-and-test.yml`, v2.51.0, with `publishes: true` and its end-to-end inputs, as the `.github` repository's README describes it.
+`.github/workflows/build-and-test.yml` calls the organization's shared `build-and-test.yml`, pinned to a release's commit with the release named beside it, with `publishes: true` and its end-to-end inputs, as the `.github` repository's README describes it.
 It grants `packages: read`, though no package comes from GitHub Packages, since the shared workflow's jobs ask for it and a called job can't get more than its caller grants; the flake proof and the relock grant it for the same reason.
 Each target's job runs on a GitHub-hosted runner, which the organization's shared `versions.yml` names for each target, for every pull request, draft or ready, every push to `main` and every run a member starts by hand: a pull request runs Linux x64, Windows x64 and macOS arm64, and a push or a run by hand runs all six targets, Linux arm64, Windows arm64 and macOS x64 too.
 Each target's job builds, checks the toolchain, Node.js 26.13.1 with npm 11.20.0, and the line endings, `* text=auto eol=lf` in `.gitattributes` and LF only with exactly one final newline in every tracked text file, with the shared pipelines tool, then runs `npm run test -- --skip-test-details --skip-coverage-details` and checks that the build and the tests changed no tracked file, within 30 minutes.
@@ -75,10 +75,10 @@ On each target the build tests, set by `end-to-end-targets` to the same list as 
 A Windows x64 job of its own, on the `windows-2025` image, with the Node.js version `versions.yml` names, runs `npm ci`, `npm run build`, `npm run test:e2e:prepare` and `npm run test:e2e:desktop` in the runner's interactive desktop session within 30 minutes, and keeps `_build/e2e` as its artifact for 14 days when it fails.
 
 The steps CI runs beyond `npm test` run locally after `npm run build`, which needs a commit, since each package's `gitHead` comes from `HEAD`.
-The shared pipelines tool is installed into a folder outside the copy, such as `<tools>`, whose `node_modules/.bin` then goes on `PATH`:
+The shared pipelines tool is installed into a folder outside the copy, such as `<tools>`, whose `node_modules/.bin` then goes on `PATH`, at the version `PIPELINES_TOOL` names in the shared `build-and-test.yml` at the release the workflows pin:
 
 ```bash
-npm install --prefix <tools> --registry https://registry.npmjs.org/ --no-audit --no-fund @noldova/tools.pipelines.github@0.0.20
+npm install --prefix <tools> --registry https://registry.npmjs.org/ --no-audit --no-fund @noldova/tools.pipelines.github@<version>
 pipelines toolchain 26.13.1 11.20.0
 pipelines line-endings
 npm run test -- --skip-test-details --skip-coverage-details
@@ -119,7 +119,7 @@ It names each exclusion with its reason before the tests run, passes it to the t
 |---|---|
 | `src/noldova.computer-use.runtime/src/jxa/mac-desktop.ts` | The macOS input process's script, which macOS's JavaScript for Automation host runs as `jxa/mac-desktop.js`, with that host's globals, so Node.js can't load it and no package test does. `mac-backend.native.ts` covers it on macOS through the runtime's backend. |
 
-Before the suite, `npm test` runs the test-wait check: it reads every `.ts`, `.cjs`, `.js` and `.mjs` file under the parts' `tests/` folders, and the `.ts` files under `e2e/tests/`, and fails on a fixed pause, or a fixed number of event-loop turns, in a file this table doesn't list, and on a listed file that no longer pauses.
+Before the suite, `npm test` runs the test-wait check: it reads every `.ts`, `.cjs`, `.js` and `.mjs` file under the parts' `tests/` folders, and the `.ts` files under `e2e/` outside the test app's `e2e/app/`, and fails on a fixed pause, such as Playwright's `waitForTimeout`, or a fixed number of event-loop turns, in a file this table doesn't list, and on a listed file that no longer pauses.
 A pause is an import or a `require` of `timers/promises`, `scheduler.wait`, `Atomics.wait`, a `setTimeout` with a fixed time, or a `setImmediate`.
 
 | Test file | Why it pauses |

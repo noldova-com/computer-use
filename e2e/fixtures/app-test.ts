@@ -6,7 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { test as base } from "@playwright/test";
+import { existsSync } from "node:fs";
+
+import { expect, test as base } from "@playwright/test";
 
 import { TestApp } from "./test-app.ts";
 
@@ -27,6 +29,7 @@ export const test = base.extend<{ isComputerUseOn: boolean; dataFiles: Readonly<
     }
     finally {
       await app.quitAsync();
+      expect(existsSync(app.root), `The test app's folder ${app.root} is still there after it quit.`).toBe(false);
     }
   }
 });

@@ -9,7 +9,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -31,22 +31,25 @@ export class TestApp {
   private static readonly FAILED_MODULES: RegExp = /^\d+ modules? didn't start$/;
   private static readonly DISCONNECTED: string = "Disconnected";
   private static readonly FOLDER_PREFIX: string = "cu-e2e-";
+  private static readonly REMOVE_RETRIES: number = 5;
   private static readonly LOGS_FOLDER: string = "logs";
   private static readonly OUTPUT_NAME: string = "main-process-output.txt";
   private static readonly WINDOW: string = "nol-window";
   private static readonly SETTINGS_BUTTON: string = ".nol-window-row-settings";
 
   public readonly window: Page;
+  public readonly root: string;
   public readonly dataDirectory: string;
   public readonly deviceDirectory: string;
   private readonly application: ElectronApplication;
   private readonly testInfo: TestInfo;
   private readonly output: string[] = [];
 
-  private constructor(application: ElectronApplication, window: Page, dataDirectory: string, deviceDirectory: string, testInfo: TestInfo) {
+  private constructor(application: ElectronApplication, window: Page, root: string, dataDirectory: string, deviceDirectory: string, testInfo: TestInfo) {
     this.application = application;
     this.testInfo = testInfo;
     this.window = window;
+    this.root = root;
     this.dataDirectory = dataDirectory;
     this.deviceDirectory = deviceDirectory;
     const child = application.process();
@@ -68,7 +71,7 @@ export class TestApp {
       args: [TestAppLayout.DEVELOPMENT_PACKAGE, `--data-dir=${dataDirectory}`, `--device-dir=${deviceDirectory}`, ...TestApp.LAUNCH_ARGUMENTS],
       cwd: TestAppLayout.APP_FOLDER
     });
-    return new TestApp(application, await application.firstWindow(), dataDirectory, deviceDirectory, testInfo);
+    return new TestApp(application, await application.firstWindow(), root, dataDirectory, deviceDirectory, testInfo);
   }
 
   public async waitForStartAsync(): Promise<void> {
@@ -165,7 +168,12 @@ export class TestApp {
         await this.closeAsync();
       }
       finally {
-        await this.attachLogsAsync();
+        try {
+          await this.attachLogsAsync();
+        }
+        finally {
+          await rm(this.root, { recursive: true, force: true, maxRetries: TestApp.REMOVE_RETRIES });
+        }
       }
     }
   }

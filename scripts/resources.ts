@@ -253,12 +253,14 @@ export class Resources {
   public static readonly nativeTimingHangLimitMs: number = 30_000;
   public static readonly nativeTimingHangReason: string = "the slowest native timing check measured took 1.9 s, on macOS x64, with the windows it opens before it measures, so a check fifteen times slower is stuck, not slow";
 
-  public static readonly testWaitFiles: readonly string[] = ["src/*/tests/**/*.ts", "src/*/tests/**/*.cjs", "src/*/tests/**/*.js", "src/*/tests/**/*.mjs", "e2e/tests/**/*.ts"];
+  public static readonly testWaitFiles: readonly string[] = ["src/*/tests/**/*.ts", "src/*/tests/**/*.cjs", "src/*/tests/**/*.js", "src/*/tests/**/*.mjs", "e2e/**/*.ts"];
+  public static readonly testWaitSkipped: readonly string[] = ["e2e/app/**"];
   public static readonly testWaitPauses: readonly RegExp[] = [
     /\bimport\s*(?:\{[^}]*\b(?:setTimeout|setImmediate|scheduler)\b[^}]*\}|\*\s*as\s+[\w$]+|[\w$]+)\s*from\s*["'](?:node:)?timers\/promises["']/g,
     /\brequire\(\s*["'](?:node:)?timers\/promises["']\s*\)/g,
     /\bscheduler\.wait\s*\(/g,
     /\bAtomics\.wait(?:Async)?\s*\(/g,
+    /\.waitForTimeout\s*\(/g,
     /(?<![.\w$])setTimeout\(\s*[A-Za-z_$][\w$]*\s*,/g,
     /(?<![.\w$])setTimeout\([^\n]*,\s*\d[\d_]*\s*\)/g,
     /\bnew\s+Promise\b(?:<[^>\n]*>)?\(\s*\(?\s*[A-Za-z_$][\w$]*\s*\)?\s*=>\s*\{?\s*setTimeout\s*\(/g,
