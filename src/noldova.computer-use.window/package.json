@@ -1,6 +1,6 @@
 {
   "name": "@noldova/computer-use.window",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Computer use's window part: the session's status and the stop control.",
   "type": "module",
   "license": "MIT",
@@ -27,7 +27,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@noldova/computer-use.protocol": "0.0.2"
+    "@noldova/computer-use.protocol": "0.0.3"
   },
   "peerDependencies": {
     "@angular/core": ">=22.3.0 <23.0.0",

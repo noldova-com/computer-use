@@ -4,6 +4,22 @@
 
 Each version's section is written by the pull request that changes the version, from the pull requests merged since the previous version; other pull requests don't edit this file.
 
+## 0.0.3
+
+- The packages take Noldova Desktop's `@noldova/desktop.*` at `>=0.0.17 <0.1.0`, context's `@noldova/context.exceptions` and `@noldova/context.json` at `>=0.0.12 <0.1.0`, and the window package's optional `@angular/core` at `>=22.3.0 <23.0.0`; `module.json` names `>=0.0.17 <0.1.0` as its `noldovaDesktop` range.
+- Each session of a conversation uses only the apps it asked for itself: the screenshot mask, window reads, input and `computer_list_apps` no longer let one session use an app another session of the conversation was granted.
+- An app's grant stays while any session that asked for it still runs, rather than ending with whichever of those sessions asked last.
+- Control stays while any session of the conversation that acted on the screen remains, so an earlier session's work isn't cut off when a later one ends.
+- On Windows:
+  - the person's pointer input counts from the input monitor's start;
+  - a long key or type batch no longer stops control as the person's input when nobody touches anything;
+  - text typed with an Enter or Tab releases that key when Windows inserts only part of the batch;
+  - input reaches an app under a path with a letter Windows folds differently, such as "İ", and that app shows its name and icon;
+  - a window read keeps the first 15 of the window's popups rather than none, ends at its limit with its time counted after UI Automation's start, loads UI Automation's lookup libraries as its start ends, and reports a time-out, rather than a missing window or control, when UI Automation or another process's controls run out of time.
+- On macOS:
+  - a drag releases its mouse button and modifiers however it ends;
+  - the person's input is reported when the input process ends during a watch.
+
 ## 0.0.2
 
 - The packages are the same as 0.0.1's but for their version: no pull request since 0.0.1 changed them.
