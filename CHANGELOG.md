@@ -14,7 +14,7 @@ Each version's section is written by the pull request that changes the version, 
   - the person's pointer input counts from the input monitor's start;
   - a long key or type batch no longer stops control as the person's input when nobody touches anything;
   - text typed with an Enter or Tab releases that key when Windows inserts only part of the batch;
-  - input reaches an app under a path with a letter Windows folds differently, such as "İ", and that app shows its name and icon;
+  - input reaches an app under a path with a letter Windows folds differently, such as "İ", and that app shows its name and icon; an app's identity now lowercases only A to Z, so an app under a path with another capital letter, such as "Ö" or "Σ", no longer matches the grant remembered for it and is asked for once more;
   - a window read keeps the first 15 of the window's popups rather than none, ends at its limit with its time counted after UI Automation's start, loads UI Automation's lookup libraries as its start ends, and reports a time-out, rather than a missing window or control, when UI Automation or another process's controls run out of time.
 - On macOS:
   - a drag releases its mouse button and modifiers however it ends;
