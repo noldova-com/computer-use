@@ -1,6 +1,6 @@
 {
   "name": "@noldova/computer-use.runtime",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Computer use's runtime part: the agent tools for screenshots and input, the session and its permission requests, and the Windows and macOS backends.",
   "type": "module",
   "license": "MIT",
@@ -32,7 +32,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@noldova/computer-use.protocol": "0.0.2"
+    "@noldova/computer-use.protocol": "0.0.3"
   },
   "noldova": {
     "windowsAddons": [
