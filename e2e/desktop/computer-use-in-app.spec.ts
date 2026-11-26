@@ -11,6 +11,7 @@ import type { JsonReader } from "@noldova/context.json";
 import { AgentDouble } from "../fixtures/agent-double.ts";
 import { expect, test } from "../fixtures/app-test.ts";
 import { HangLimits } from "../fixtures/hang-limits.ts";
+import { Pointer } from "../fixtures/pointer.ts";
 import type { TestApp } from "../fixtures/test-app.ts";
 import { StopKey } from "../fixtures/stop-key.ts";
 import { TestWindows } from "../fixtures/test-windows.ts";
@@ -52,6 +53,7 @@ test.describe("computer use in a real app, with the operating system's grants", 
     await app.openModulesAsync();
     await expect(app.moduleRow("computer-use").locator(".nol-modules-state-label")).toHaveText("Active");
     await expect(app.statusItem(STATUS_ITEM)).toBeHidden();
+    const pointer = await Pointer.readAsync();
     const window = await TestWindows.openAsync(HangLimits.DESKTOP_TEST_COVERS_A_COLD_APP_START_THE_TEST_WINDOW_AND_EVERY_TOOL_CALL_MS);
     const agent = new AgentDouble(app);
     try {
@@ -100,7 +102,12 @@ test.describe("computer use in a real app, with the operating system's grants", 
         await agent.endAsync();
       }
       finally {
-        await window.closeAsync();
+        try {
+          await window.closeAsync();
+        }
+        finally {
+          await pointer.restoreAsync();
+        }
       }
     }
   });

@@ -52,10 +52,10 @@ agent ──▶ the app's MCP server ──▶ base tool registry ──▶ runt
   The module never changes privacy or security settings: it reports a missing grant.
 - **The base.**
   The module reaches the base only through its published packages, `@noldova/desktop.runtime` and `@noldova/desktop.protocol`, as peers it shares with the app, and the window part through `@noldova/desktop.window`, as an optional peer the app's window workspace holds ([section 7](#7-how-an-app-uses-it)), in the range of Noldova Desktop versions it accepts.
-  `module.json` names that range as `noldovaDesktop`, `>=0.0.9 <0.1.0`: from the version it builds and tests against, the root `package.json`'s exact pin, to the next minor, which a Noldova Desktop release that may break modules raises before 1.0, as Noldova Desktop's module contract says.
+  `module.json` names that range as `noldovaDesktop`: from the version it builds and tests against, the root `package.json`'s exact pin, to the next minor, which a Noldova Desktop release that may break modules raises before 1.0, as Noldova Desktop's module contract says.
   What it needs from the base is listed in [section 5](#5-what-the-module-needs-from-the-base).
 - **Context.**
-  The runtime and protocol packages take `@noldova/context.exceptions` and `@noldova/context.json` as peers, `>=0.0.7 <0.1.0`, from the first version they run on to the next minor, as Noldova Desktop's packages take them, so an app installs one copy of each; the root `package.json` pins the version the checks run on, inside that range.
+  The runtime and protocol packages take `@noldova/context.exceptions` and `@noldova/context.json` as peers, from the version the root `package.json` pins and the checks run on to the next minor, as Noldova Desktop's packages take them, so an app installs one copy of each.
 
 ## 4. Tools and risk levels
 
@@ -656,7 +656,7 @@ The published registry differs from what section 4 asked for in ways the module 
   The module package names no peer on Noldova Desktop's window package: npm installs a module package's peer on that package at the app's root, optional or not, where its exact Angular peers clash with the newest Angular 22 that `@angular/cdk`'s ranges take, so the app's install fails with ERESOLVE, and Noldova Desktop's build refuses an app whose root install holds Angular.
   The part packages are named `@noldova/computer-use.<part>`, and the window part carries the name Noldova Desktop gives a module's window package, `@noldova/computer-use.window`.
   Noldova Desktop requires that package to be an Angular package, so it takes `@angular/core` and Noldova Desktop's window package, `@noldova/desktop.window`, whose classes it builds its command and status bar item with, as optional peers, and imports no Angular itself: Angular as `>=22.3.0 <23.0.0`, from the version Noldova Desktop's window package pins to the next Angular major, since only a new Angular major may break a module, and Noldova Desktop's window package in the module's `noldovaDesktop` range, each of which must hold the version the app's window workspace has.
-  Noldova Desktop 0.0.1, the first published on npm as the `@noldova/desktop.*` packages, takes an Angular range in its build; `noldovaDesktop` starts at 0.0.9, the version the root `package.json` pins.
+  Noldova Desktop 0.0.1, the first published on npm as the `@noldova/desktop.*` packages, takes an Angular range in its build; `noldovaDesktop` starts at the version the root `package.json` pins.
   Noldova Desktop's build installs into that workspace the packages the module package's `./window` imports, so the app adds nothing there for the module.
 - It offers the module behind a preview setting, `computer-use.enabled`, off by default: its switch setting, which Noldova Desktop turns the module on and off with ([section 5](#5-what-the-module-needs-from-the-base)). While the setting is off, the module offers no tool and reaches no operating-system call.
 - It hosts the one MCP server its agents reach, and offers them the tools the module registers in the base's tool registry.

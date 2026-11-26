@@ -54,7 +54,7 @@ export class TestWaitCheck {
   public async runAsync(): Promise<readonly string[]> {
     const listed = new Set(this.listed.map(t => t.file));
     const files: string[] = [];
-    for await (const file of glob(Resources.testWaitFiles, { cwd: this.root }))
+    for await (const file of glob(Resources.testWaitFiles, { cwd: this.root, exclude: Resources.testWaitSkipped }))
       files.push(file.replaceAll(path.sep, Resources.pathSeparator));
     files.sort();
     const pausing = new Set<string>();
