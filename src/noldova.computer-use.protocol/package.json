@@ -1,6 +1,6 @@
 {
   "name": "@noldova/computer-use.protocol",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Computer use's models that its runtime and window parts exchange: the session's status, its control state, the status read and stop requests, and the border colour request.",
   "type": "module",
   "license": "MIT",
