@@ -198,7 +198,7 @@ export class Resources {
     "--test-coverage-branches=100",
     "--test-coverage-functions=100"
   ];
-  public static readonly testFiles: readonly string[] = ["src/*/tests/**/*.test.ts", "e2e/tests/**/*.test.ts"];
+  public static readonly testFiles: readonly string[] = ["src/*/tests/**/*.test.ts", "e2e/tests/**/*.test.ts", "scripts/tests/**/*.test.ts"];
   public static readonly testFileEnding: string = ".ts";
   public static readonly workflowTestOptions: readonly string[] = ["--skip-test-details", "--skip-coverage-details"];
   public static readonly filteredTestOptions: readonly string[] = ["--test", "--enable-source-maps"];
@@ -311,7 +311,7 @@ export class Resources {
   }
 
   public static formatPeerMoved(dependency: string, version: string): string {
-    return `Moved ${dependency} to ${version}, the newest published version inside the packages' peer ranges.`;
+    return `Moved ${dependency} to ${version}, the newest version every context package has published inside the packages' peer ranges.`;
   }
 
   public static formatPeerMoveFailed(exitCode: number | null, output: string): string {
@@ -336,6 +336,10 @@ export class Resources {
 
   public static formatPeerNoVersion(dependency: string, ranges: readonly string[]): string {
     return `npm view gives no published version of ${dependency} inside ${ranges.join(" and ")}.`;
+  }
+
+  public static formatPeerNoCommonVersion(dependencies: readonly string[]): string {
+    return `npm view gives no version that ${dependencies.join(", ")} have all published inside the packages' peer ranges.`;
   }
 
   public static formatPeerRangeInvalid(file: string, dependency: string, taken: string): string {
