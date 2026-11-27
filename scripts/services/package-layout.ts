@@ -14,6 +14,7 @@ import { FieldMissingException } from "../exceptions/field-missing.exception.ts"
 import { FieldNotObjectException } from "../exceptions/field-not-object.exception.ts";
 import { FieldNotStringException } from "../exceptions/field-not-string.exception.ts";
 import type { IPackagePart } from "../interfaces/i-package-part.ts";
+import { PackagePart } from "../models/package-part.ts";
 import { Resources } from "../resources.ts";
 
 export class PackageLayout {
@@ -35,7 +36,7 @@ export class PackageLayout {
       const version = PackageLayout.readString(manifest, Resources.versionField, manifestFile);
       const moduleId = PackageLayout.readString(await this.readJsonAsync(moduleFile), Resources.idField, moduleFile);
       const expectedName = Resources.formatPackageName(moduleId, isModule ? "" : folder.slice(partAt));
-      parts.push({ dependencies: PackageLayout.readNames(manifest, Resources.dependenciesField, manifestFile), expectedName, folder, isModule, name, version });
+      parts.push(new PackagePart(name, version, folder, expectedName, isModule, PackageLayout.readNames(manifest, Resources.dependenciesField, manifestFile)));
     }
 
     return parts;
